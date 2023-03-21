@@ -1,3 +1,6 @@
+from math import *
+import numpy as np
+
 class MotionModel:
 
     def __init__(self):
@@ -33,6 +36,30 @@ class MotionModel:
         ####################################
         # TODO
 
-        raise NotImplementedError
+        #strategy: 
+        #apply odometry information to each particle.
+        #get the new particle.
+        #add noise to the particle measurement somehow?
+        #return the list of all the new particles 
+        
+        
+        od_x=odometry[0]
+        od_y=odometry[1]
+        od_theta=odometry[2]
+        
+        output=[]
+        
+        for r in particles:
+            r_theta=r[2]
+            
+            row=np.array(r).reshape((3,1))
+            trans=np.array([od_x*cos(r_theta)-od_y*sin(r_theta), od_x*sin(r_theta)+od_y*cos(r_theta), od_theta]).reshape((3,1))
+
+            new_particle=np.add(row, trans)
+            output.append(list(new_particle))
+            
+        return output
+    
+        #still need some noise
 
         ####################################
