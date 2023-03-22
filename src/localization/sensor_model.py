@@ -6,6 +6,7 @@ from localization.scan_simulator_2d import PyScanSimulator2D
 import rospy
 import math
 import tf
+from scipy import interpolate
 from nav_msgs.msg import OccupancyGrid
 from tf.transformations import quaternion_from_euler
 
@@ -175,13 +176,9 @@ class SensorModel:
             lidar_scan.angle_max,
             N,
         )
-
-        # TODO: Replace this with a cubic spline interpolation instead of nearest neighbors
-        indexes = np.round(
-            (desired_angles - lidar_scan.angle_min) * ((N - 1) / lidar_scan.angle_max)
-        )
-        indexes = np.clip(indexes, 0, N - 1)
-        return ranges[indexes]
+        spline = interpolate.splrep(angles, ranges)
+        desired_ranges = interpolate.splev(desired_angles, spline)
+        return desired_ranges
         
 
     def map_callback(self, map_msg):
