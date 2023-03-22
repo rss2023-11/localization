@@ -64,10 +64,8 @@ class SensorModel:
         at runtime by discretizing the measurements and computed ranges from
         RangeLibc.
         This table must be implemented as a numpy 2D array.
-
         Compute the table based on class parameters alpha_hit, alpha_short,
         alpha_max, alpha_rand, sigma_hit, and table_width.
-
         args:
             N/A
         
@@ -115,29 +113,26 @@ class SensorModel:
                 self.sensor_model_table[d][zi]=short_term+max_term+rand_term
                 
         #normalize hits term array
-        norms=np.linalg.norm(hits_terms, axis=0)
-        hits_terms = hits / norms# np.divide(hits_terms,norms)
+        norms=np.sum(hits_terms, axis=0)
+        hits_terms=np.divide(hits_terms,norms)
         self.sensor_model_table=np.add(self.sensor_model_table,hits_terms)
         
         #normalize whole table
-        table_norms=np.linalg.norm(self.sensor_model_table, axis=0)
+        table_norms=np.sum(self.sensor_model_table, axis=0)
         self.sensor_model_table=np.divide(self.sensor_model_table, table_norms)
 
     def evaluate(self, particles, observation):
         """
         Evaluate how likely each particle is given
         the observed scan.
-
         args:
             particles: An Nx3 matrix of the form:
             
                 [x0 y0 theta0]
                 [x1 y0 theta1]
                 [    ...     ]
-
             observation: A vector of lidar data measured
                 from the actual lidar.
-
         returns:
            probabilities: A vector of length N representing
                the probability of each particle existing
