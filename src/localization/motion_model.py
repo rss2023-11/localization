@@ -10,7 +10,7 @@ class MotionModel:
         # Do any precomputation for the motion
         # model here.
 
-        pass
+        deterministic = rospy.get_param("deterministic")
 
         ####################################
 
@@ -42,7 +42,6 @@ class MotionModel:
         #add noise to the particle measurement somehow?
         #return the list of all the new particles 
         
-        
         od_x=odometry[0]
         od_y=odometry[1]
         od_theta=odometry[2]
@@ -53,13 +52,26 @@ class MotionModel:
             r_theta=r[2]
             
             row=np.array(r).reshape((3,1))
+            
+            #transformation matrix
             trans=np.array([od_x*cos(r_theta)-od_y*sin(r_theta), od_x*sin(r_theta)+od_y*cos(r_theta), od_theta]).reshape((3,1))
 
+            #apply the transformation
             new_particle=np.add(row, trans)
+            
+            #add noise
+            if deterministic==false:
+                x_error=np.random.normal(0.0, 0.05)
+                y_error=np.random.normal(0.0, 0.02)
+                theta_error=np.random.normal(0.0, 0.05)
+                
+                noise=np.array([x_error, y_error, theta_error]).reshape((3,1))
+                new_particle=np.add(noise, new_particle)
+                
             output.append(list(new_particle))
             
         return output
     
-        #still need some noise
-
         ####################################
+
+#tester not working--ask about this in OH. "no module named localization.motion_model"
