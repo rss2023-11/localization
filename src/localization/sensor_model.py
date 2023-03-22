@@ -21,11 +21,11 @@ class SensorModel:
         ####################################
         # TODO
         # Adjust these parameters
-        self.alpha_hit = 0
-        self.alpha_short = 0
-        self.alpha_max = 0
-        self.alpha_rand = 0
-        self.sigma_hit = 0
+        self.alpha_hit = 0.74
+        self.alpha_short = 0.07
+        self.alpha_max = 0.07
+        self.alpha_rand = 0.12
+        self.sigma_hit = 8.0
 
         # Your sensor table will be a `table_width` x `table_width` np array:
         self.table_width = 201
@@ -51,7 +51,20 @@ class SensorModel:
                 OccupancyGrid,
                 self.map_callback,
                 queue_size=1)
+        
+    def p(self, d, z):
+        """
+        Calculate the probability like in part 1B
+        """
+        zmax = 10.0
+        sigma = 0.5
+        e = 0.1
+        phit = 0 if z<0 or z>zmax else 1/(2*math.pi * sigma**2)**0.5 * math.e**(-((z-d)**2/(2*sigma**2)))
+        pshort = 0 if z<1 or z>d else (1-z/d)*2/d
+        pmax = 0 if z<(zmax-e) or z>zmax else 1.0/e
+        prand = 0 if z<0 or z>zmax else 1.0/zmax
 
+        return self.alpha_hit*phit + self.alpha_short*pshort + self.alpha_max*pmax + self.alpha_rand*prand
     def precompute_sensor_model(self):
         """
         Generate and store a table which represents the sensor model.
@@ -71,7 +84,11 @@ class SensorModel:
         returns:
             No return type. Directly modify `self.sensor_model_table`.
         """
-        raise NotImplementedError
+        self.sensor_model_table = np.zeros((self.table_width, self.table_width))
+
+        for d in range(self.table_width):
+            for z in range(self.table_width):
+                self.sensor_model_table[d][z] = self.p(d, z)
 
     def evaluate(self, particles, observation):
         """
