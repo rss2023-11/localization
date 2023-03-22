@@ -1,5 +1,6 @@
-from math import *
+import math
 import numpy as np
+import rospy
 
 class MotionModel:
 
@@ -10,7 +11,7 @@ class MotionModel:
         # Do any precomputation for the motion
         # model here.
 
-        deterministic = rospy.get_param("deterministic")
+        self.deterministic = rospy.get_param("~deterministic")
 
         ####################################
 
@@ -47,20 +48,21 @@ class MotionModel:
         od_theta=odometry[2]
         
         output=[]
-        
+        print(particles.shape())
+
         for r in particles:
             r_theta=r[2]
             
             row=np.array(r).reshape((3,1))
             
             #transformation matrix
-            trans=np.array([od_x*cos(r_theta)-od_y*sin(r_theta), od_x*sin(r_theta)+od_y*cos(r_theta), od_theta]).reshape((3,1))
-
+            trans=np.array([od_x*math.cos(r_theta)-od_y*math.sin(r_theta), od_x*math.sin(r_theta)+od_y*math.cos(r_theta), od_theta]).reshape((3,1))
+            print(trans.shape())
             #apply the transformation
             new_particle=np.add(row, trans)
             
             #add noise
-            if deterministic==false:
+            if self.deterministic==False:
                 x_error=np.random.normal(0.0, 0.05)
                 y_error=np.random.normal(0.0, 0.02)
                 theta_error=np.random.normal(0.0, 0.05)

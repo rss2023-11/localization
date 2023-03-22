@@ -4,6 +4,7 @@ from localization.scan_simulator_2d import PyScanSimulator2D
 # if any error re: scan_simulator_2d occurs
 
 import rospy
+import math
 import tf
 from nav_msgs.msg import OccupancyGrid
 from tf.transformations import quaternion_from_euler
@@ -26,10 +27,8 @@ class SensorModel:
         self.alpha_max = 0.07
         self.alpha_rand = 0.12
         self.sigma_hit = 8.0
-
         self.z_max = 200 #I assume it's 200 bc that's the max possible distance we get?
-        self.sigma = 0.5
-        self.eta = 0.1
+
         # Your sensor table will be a `table_width` x `table_width` np array:
         self.table_width = 201
         ####################################
@@ -77,13 +76,13 @@ class SensorModel:
         #fxns for calculating different terms of the probability   
         def p_hit(zi, d):
             if zi>=0 and zi<=d:
-                output=self.alpha_hit*1/(sqrt(2*pi*self.sigma_hit**2))*exp(-(zi-d)^2/(2*self.sigma_hit**2))
+                output=self.alpha_hit*1/(math.sqrt(2*math.pi*self.sigma_hit**2))*np.exp(-(zi-d)**2/(2*self.sigma_hit**2))
                 return output
             else:
                 return 0
             
         def p_short(zi, d):
-            if z>=0 and zi<=d and d!=0:
+            if zi>=0 and zi<=d and d!=0:
                 output=(2/d)*(1-(zi/d))
                 return output
             else:
@@ -96,7 +95,7 @@ class SensorModel:
                 return 0
             
         def p_rand(zi, d):
-            if z>=0 and z<=self.z_max:
+            if zi>=0 and zi<=self.z_max:
                 return 1/self.z_max
             else:
                 return 0
