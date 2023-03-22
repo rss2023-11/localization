@@ -158,6 +158,32 @@ class SensorModel:
 
         ####################################
 
+    def downsample(lidar_scan, num_samples, angle_min=None, angle_max=None):
+        """
+        Given a lidar scan, return a vector of lidar data corresponding to the given number of samples equally
+        distributed from `angle_min` to `angle_max` (inclusive). By default, angle_min and angle_max are
+        chosen to encompass the entire range of the lidar scan.
+        """
+        angle_min = angle_min if angle_min is not None else lidar_scan.angle_min
+        angle_max = angle_max if angle_max is not None else lidar_scan.angle_max
+        desired_angles = np.linspace(angle_min, angle_max, num_samples)
+        
+        ranges = np.array(lidar_scan.ranges)
+        N = len(ranges)
+        angles = np.linspace(
+            lidar_scan.angle_min,
+            lidar_scan.angle_max,
+            N,
+        )
+
+        # TODO: Replace this with a cubic spline interpolation instead of nearest neighbors
+        indexes = np.round(
+            (desired_angles - lidar_scan.angle_min) * ((N - 1) / lidar_scan.angle_max)
+        )
+        indexes = np.clip(indexes, 0, N - 1)
+        return ranges[indexes]
+        
+
     def map_callback(self, map_msg):
         # Convert the map to a numpy array
         self.map = np.array(map_msg.data, np.double)/100.
