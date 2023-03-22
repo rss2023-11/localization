@@ -10,7 +10,7 @@ class MotionModel:
         # Do any precomputation for the motion
         # model here.
 
-        deterministic = rospy.get_param("deterministic")
+        self.deterministic = rospy.get_param("deterministic")
 
         ####################################
 
@@ -41,26 +41,25 @@ class MotionModel:
         #get the new particle.
         #add noise to the particle measurement somehow?
         #return the list of all the new particles 
+        output=np.zeros((particles.shape[0], 3))
         
-        od_x=odometry[0]
-        od_y=odometry[1]
-        od_theta=odometry[2]
-        
-        output=[]
-        
-        for r in particles:
-            r_theta=r[2]
-            
-            row=np.array(r).reshape((3,1))
-            
+        for r in range(particles.shape[0]):
+            r_theta=particles[r][2]
+            # print(r_theta)
+            row=particles[r].reshape((3,1))
+            # print(row)
             #transformation matrix
-            trans=np.array([od_x*cos(r_theta)-od_y*sin(r_theta), od_x*sin(r_theta)+od_y*cos(r_theta), od_theta]).reshape((3,1))
-
+            trans = np.array([[cos(r_theta), -sin(r_theta), 0],
+                              [sin(r_theta), cos(r_theta), 0],
+                              [0,0,1]])
+            # print(trans, odometry.reshape((3,1)))
+            trans=np.matmul(trans, odometry.reshape((3,1)))
+            # print(trans)
             #apply the transformation
             new_particle=np.add(row, trans)
-            
+            # print(new_particle)
             #add noise
-            if deterministic==false:
+            if self.deterministic==False:
                 x_error=np.random.normal(0.0, 0.05)
                 y_error=np.random.normal(0.0, 0.02)
                 theta_error=np.random.normal(0.0, 0.05)
@@ -68,10 +67,6 @@ class MotionModel:
                 noise=np.array([x_error, y_error, theta_error]).reshape((3,1))
                 new_particle=np.add(noise, new_particle)
                 
-            output.append(list(new_particle))
+            output[r] = new_particle.reshape((1,3))
             
         return output
-    
-        ####################################
-
-#tester not working--ask about this in OH. "no module named localization.motion_model"
