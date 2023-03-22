@@ -1,5 +1,6 @@
 from math import *
 import numpy as np
+import rospy
 
 class MotionModel:
 
@@ -10,7 +11,7 @@ class MotionModel:
         # Do any precomputation for the motion
         # model here.
 
-        self.deterministic = rospy.get_param("deterministic")
+        self.deterministic = rospy.get_param("~deterministic")
 
         ####################################
 

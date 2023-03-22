@@ -4,7 +4,9 @@ from localization.scan_simulator_2d import PyScanSimulator2D
 # if any error re: scan_simulator_2d occurs
 
 import rospy
+import math
 import tf
+from scipy import interpolate
 from nav_msgs.msg import OccupancyGrid
 from tf.transformations import quaternion_from_euler
 
@@ -26,10 +28,8 @@ class SensorModel:
         self.alpha_max = 0.07
         self.alpha_rand = 0.12
         self.sigma_hit = 8.0
-
         self.z_max = 200 #I assume it's 200 bc that's the max possible distance we get?
-        self.sigma = 0.5
-        self.eta = 0.1
+
         # Your sensor table will be a `table_width` x `table_width` np array:
         self.table_width = 201
         ####################################
@@ -77,13 +77,13 @@ class SensorModel:
         #fxns for calculating different terms of the probability   
         def p_hit(zi, d):
             if zi>=0 and zi<=d:
-                output=self.alpha_hit*1/(sqrt(2*pi*self.sigma_hit**2))*exp(-(zi-d)^2/(2*self.sigma_hit**2))
+                output=self.alpha_hit*1/(math.sqrt(2*math.pi*self.sigma_hit**2))*np.exp(-(zi-d)**2/(2*self.sigma_hit**2))
                 return output
             else:
                 return 0
             
         def p_short(zi, d):
-            if z>=0 and zi<=d and d!=0:
+            if zi>=0 and zi<=d and d!=0:
                 output=(2/d)*(1-(zi/d))
                 return output
             else:
@@ -96,7 +96,7 @@ class SensorModel:
                 return 0
             
         def p_rand(zi, d):
-            if z>=0 and z<=self.z_max:
+            if zi>=0 and zi<=self.z_max:
                 return 1/self.z_max
             else:
                 return 0
@@ -158,6 +158,28 @@ class SensorModel:
         scans = self.scan_sim.scan(particles)
 
         ####################################
+
+    def downsample(lidar_scan, num_samples, angle_min=None, angle_max=None):
+        """
+        Given a lidar scan, return a vector of lidar data corresponding to the given number of samples equally
+        distributed from `angle_min` to `angle_max` (inclusive). By default, angle_min and angle_max are
+        chosen to encompass the entire range of the lidar scan.
+        """
+        angle_min = angle_min if angle_min is not None else lidar_scan.angle_min
+        angle_max = angle_max if angle_max is not None else lidar_scan.angle_max
+        desired_angles = np.linspace(angle_min, angle_max, num_samples)
+        
+        ranges = np.array(lidar_scan.ranges)
+        N = len(ranges)
+        angles = np.linspace(
+            lidar_scan.angle_min,
+            lidar_scan.angle_max,
+            N,
+        )
+        spline = interpolate.splrep(angles, ranges)
+        desired_ranges = interpolate.splev(desired_angles, spline)
+        return desired_ranges
+        
 
     def map_callback(self, map_msg):
         # Convert the map to a numpy array

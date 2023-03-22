@@ -77,6 +77,8 @@ class SensorModel:
 test = SensorModel()
 # test.precompute_sensor_model()
 
+from math import *
+import numpy as np
 class MotionModel:
 
     def __init__(self):
@@ -86,7 +88,7 @@ class MotionModel:
         # Do any precomputation for the motion
         # model here.
 
-        self.deterministic = False
+        self.deterministic =False
 
         ####################################
 
@@ -110,8 +112,13 @@ class MotionModel:
         """
         
         ####################################
-        
-        
+        # TODO
+
+        #strategy: 
+        #apply odometry information to each particle.
+        #get the new particle.
+        #add noise to the particle measurement somehow?
+        #return the list of all the new particles 
         output=np.zeros((particles.shape[0], 3))
         
         for r in range(particles.shape[0]):
