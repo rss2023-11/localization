@@ -121,7 +121,7 @@ class SensorModel:
         
         #normalize whole table
         table_norms=np.linalg.norm(self.sensor_model_table, axis=0)
-        self.sensor_model_table=np.divide(self.sensor_model_table, table_norms)
+        self.sensor_model_table=np.log(np.divide(self.sensor_model_table, table_norms))
 
     def evaluate(self, particles, observation):
         """
@@ -147,15 +147,25 @@ class SensorModel:
         if not self.map_set:
             return
 
+        # Make sure we were passed the correct number of observations
+        assert len(observation) == self.num_beams_per_particle
+
         ####################################
         # TODO
         # Evaluate the sensor model here!
-        #
         # You will probably want to use this function
         # to perform ray tracing from all the particles.
         # This produces a matrix of size N x num_beams_per_particle 
-
         scans = self.scan_sim.scan(particles)
+        
+        # Convert to integers and clip. The out=... is done to make it in place (saving speed & memory)
+        np.rint(scans, out=scans).astype(int)
+        np.clip(scans, 0, self.table_width - 1, out=scans)
+        np.rint(observation, out=observation).astype(int)
+        np.clip(observation, 0, self.table_width - 1, out=observation)
+
+        log_probs = self.sensor_model_table[scans, observation].sum(axis=1)
+        return np.exp(log_probs)
 
         ####################################
 
