@@ -73,7 +73,7 @@ class SensorModel:
         
         returns:
             No return type. Directly modify `self.sensor_model_table`.
-        """     
+        """
         #fxns for calculating different terms of the probability   
         def p_hit(zi, d):
             if zi>=0 and zi<=d:
@@ -116,12 +116,12 @@ class SensorModel:
                 
         #normalize hits term array
         norms=np.linalg.norm(hits_terms, axis=0)
-        hits_terms=np.divide(hits_terms,norms)
+        hits_terms = hits / norms# np.divide(hits_terms,norms)
         self.sensor_model_table=np.add(self.sensor_model_table,hits_terms)
         
         #normalize whole table
         table_norms=np.linalg.norm(self.sensor_model_table, axis=0)
-        self.sensor_model_table=np.log(np.divide(self.sensor_model_table, table_norms))
+        self.sensor_model_table=np.divide(self.sensor_model_table, table_norms)
 
     def evaluate(self, particles, observation):
         """
@@ -164,7 +164,8 @@ class SensorModel:
         np.rint(observation, out=observation).astype(int)
         np.clip(observation, 0, self.table_width - 1, out=observation)
 
-        log_probs = self.sensor_model_table[scans, observation].sum(axis=1)
+        probs = self.sensor_model_table[scans, observation]
+        log_probs = np.log(probs).sum(axis=1)
         return np.exp(log_probs)
 
         ####################################
