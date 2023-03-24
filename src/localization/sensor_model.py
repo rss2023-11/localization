@@ -28,7 +28,7 @@ class SensorModel:
         self.alpha_max = 0.07
         self.alpha_rand = 0.12
         self.sigma_hit = 8.0
-        self.z_max = 200 #I assume it's 200 bc that's the max possible distance we get?
+        self.z_max = 200.0 #I assume it's 200 bc that's the max possible distance we get?
 
         # Your sensor table will be a `table_width` x `table_width` np array:
         self.table_width = 201
@@ -74,52 +74,37 @@ class SensorModel:
         """
         #fxns for calculating different terms of the probability   
         def p_hit(zi, d):
-            if zi>=0 and zi<=d:
-                output=self.alpha_hit*1/(math.sqrt(2*math.pi*self.sigma_hit**2))*np.exp(-(zi-d)**2/(2*self.sigma_hit**2))
-                return output
-            else:
-                return 0
+            unscaled = (zi >= 0) * (zi <= self.z_max) * np.exp(-(zi - d) ** 2 / (2.0 * self.sigma_hit ** 2))
+            return unscaled
             
         def p_short(zi, d):
-            if zi>=0 and zi<=d and d!=0:
-                output=(2/d)*(1-(zi/d))
-                return output
-            else:
-                return 0
+            if d == 0:
+                return np.zeros_like(zi)
+            return (zi >= 0) * (zi <= d) * 2.0 / (d) * (1 - zi / d)
         
         def p_max(zi, d):
-            if zi==self.z_max:
-                return 1
-            else:
-                return 0
+            return 1.0 * (zi == self.z_max)
             
         def p_rand(zi, d):
-            if zi>=0 and zi<=self.z_max:
-                return 1/self.z_max
-            else:
-                return 0
-        
-        hits_terms=np.zeros((self.table_width, self.table_width))
+            return np.ones_like(zi.shape) / (self.z_max)
         
         #fill a hits term array to be normalized, as well as the actual table
-        for d in range(0,self.table_width):
-            for zi in range(0,self.table_width):
-                hit_term=p_hit(zi,d)
-                short_term=p_short(zi,d)
-                max_term=p_max(zi,d)
-                rand_term=p_rand(zi,d)
-                
-                hits_terms[d][zi]=hit_term
-                self.sensor_model_table[d][zi]=short_term+max_term+rand_term
-                
-        #normalize hits term array
-        norms=np.sum(hits_terms, axis=0)
-        hits_terms=np.divide(hits_terms,norms)
-        self.sensor_model_table=np.add(self.sensor_model_table,hits_terms)
-        
-        #normalize whole table
-        table_norms=np.sum(self.sensor_model_table, axis=0)
-        self.sensor_model_table=np.divide(self.sensor_model_table, table_norms)
+        for d in range(self.table_width):
+            zi = np.array(range(self.table_width), dtype=float)
+            d_float = float(d)
+            hit_term = p_hit(zi, d_float)
+            hit_term /= np.sum(hit_term)
+
+            short_term = p_short(zi, d_float)
+            max_term = p_max(zi, d_float)
+            rand_term = p_rand(zi, d_float)
+
+            total = (self.alpha_hit * hit_term +
+                     self.alpha_short  * short_term +
+                     self.alpha_max * max_term +
+                     self.alpha_rand * rand_term)
+            total /= np.sum(total)
+            self.sensor_model_table[:, d] = total
 
     def evaluate(self, particles, observation):
         """
@@ -160,7 +145,7 @@ class SensorModel:
         np.clip(observation, 0, self.table_width - 1, out=observation)
 
         probs = self.sensor_model_table[scans, observation]
-        log_probs = np.log(probs).sum(axis=1)
+        log_probs = np.log(probs).sum(axis=1) / 2.2 # Squashing factor is 2.2
         return np.exp(log_probs)
 
         ####################################
