@@ -13,6 +13,8 @@ scan_field_of_view: 4.71 # radians
 # Discretize the theta space for faster ray tracing
 scan_theta_discretization: 500
 
+lidar_scale_to_map_scale: 1.0
+
 # The names of topics to listen and publish to
 map_topic: "/map"
 scan_topic: "/scan"
