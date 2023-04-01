@@ -9,7 +9,7 @@ from motion_model import MotionModel
 from std_msgs.msg import Header
 from sensor_msgs.msg import LaserScan
 from nav_msgs.msg import Odometry
-from geometry_msgs.msg import PoseWithCovarianceStamped, PoseWithCovariance, Pose, Position, Quaternion
+from geometry_msgs.msg import PoseWithCovarianceStamped, PoseWithCovariance, Pose, Point, Quaternion
 from tf.transformations import euler_from_quaternion, quaternion_from_euler
 
 import numpy as np
@@ -48,7 +48,7 @@ class ParticleFilter:
         #     "Pose Estimate" feature in RViz, which publishes to
         #     /initialpose.
         self.pose_sub  = rospy.Subscriber("/initialpose", PoseWithCovarianceStamped,
-                                          self.set_initial_pose,
+                                          self.initialize_particles,
                                           queue_size=1)
 
         #  *Important Note #3:* You must publish your pose estimate to
@@ -77,9 +77,12 @@ class ParticleFilter:
         # and the particle_filter_frame.
         self.particles = None
 
-    def initialize_particles(self, initial_pose: PoseWithCovarianceStamped):
+    def initialize_particles(self, initial_pose):
         '''
         Initialize all particles as particle from RViz input.
+
+        args:
+            initial_pose: An object of type PoseWithCovarianceStamped representing the pose to initialize using
         '''
         # extract coordinates of particle
         x = initial_pose.pose.pose.position[0]
@@ -94,9 +97,12 @@ class ParticleFilter:
         # Create the particles
         self.particles = np.random.multivariate_normal(mean_position, covariance, (self.num_particles,))
 
-    def odometry_update(self, odometry_msg: Odometry):
+    def odometry_update(self, odometry_msg):
         '''
         Callback for motino model which updates particle positions and publishes average position.
+
+        args:
+            odometry_msg: An object of type Odometry representing the odometry message
         '''
         if self.particles is None:
             raise Exception("Particles not initialized. Provide an initial pose through the /initialpose topic before using the odometry callback")
@@ -108,9 +114,12 @@ class ParticleFilter:
         # publish particle position
         self.publish_average_particle()
         
-    def sensor_update(self, laser_scan: LaserScan):
+    def sensor_update(self, laser_scan):
         '''
         Callback for sensor model which determines particle likelihoods and publishes average position.
+
+        args:
+            laser_scan: An object of type LaserScan representing the LaserScan message
         '''
         if self.particles is None:
             raise Exception("Particles not initialized. Provide an initial pose through the /initialpose topic before using the odometry callback")
@@ -142,7 +151,7 @@ class ParticleFilter:
             header = Header(frame_id = self.map_frame),
             child_frame_id = self.particle_filter_frame,
             pose = PoseWithCovariance(pose = Pose(
-                position = Position(x=best_particle[0], y=best_particle[1], z=0),
+                position = Point(x=best_particle[0], y=best_particle[1], z=0),
                 orientation = Quaternion(quaternion_from_euler(0, 0, best_particle[2]))
             ))
         )
