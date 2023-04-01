@@ -1,6 +1,8 @@
 #!/usr/bin/env python2
 
 import rospy
+import numpy as np
+from tf.transformations import euler_from_quaternion
 from sensor_model import SensorModel
 from motion_model import MotionModel
 
@@ -15,7 +17,6 @@ import math
 
 
 class ParticleFilter:
-
     def __init__(self):
         # Get parameters
         self.particle_filter_frame = \
@@ -62,6 +63,9 @@ class ParticleFilter:
         self.motion_model = MotionModel()
         self.sensor_model = SensorModel()
 
+        self.num_particles = rospy.get_param("~num_particles", 200)
+        self.particles = None
+
         # Implement the MCL algorithm
         # using the sensor model and the motion model
         #
@@ -81,13 +85,22 @@ class ParticleFilter:
         x = initial_pose.pose.pose.position[0]
         y = initial_pose.pose.pose.position[1]
         yaw = euler_from_quaternion(initial_pose.pose.pose.orientation)[2]
-        position = np.array([[x, y, yaw]])
-        self.particles = np.repeat(position, self.num_particles, axis=0)
+        mean_position = np.array([[x, y, yaw]])
+
+        covariance = np.array(initial_pose.pose.covariance).reshape((6, 6))
+        # Only keep the relevant rows: the ones corresponding to xy position and rotation about the z axis
+        covariance = covariance[(0, 1, 5), (0, 1, 5)]
+
+        # Create the particles
+        self.particles = np.random.multivariate_normal(mean_position, covariance, (self.num_particles,))
 
     def odometry_update(self, odometry_msg: Odometry):
         '''
         Callback for motino model which updates particle positions and publishes average position.
         '''
+        if self.particles is None:
+            raise Exception("Particles not initialized. Provide an initial pose through the /initialpose topic before using the odometry callback")
+        pass
         # extract change in position and angle (labeled twist) from published Odometry message 
         odometry = odometry_msg.twist.twist.linear
         # update particles with new odometry information
@@ -99,6 +112,9 @@ class ParticleFilter:
         '''
         Callback for sensor model which determines particle likelihoods and publishes average position.
         '''
+        if self.particles is None:
+            raise Exception("Particles not initialized. Provide an initial pose through the /initialpose topic before using the odometry callback")
+        pass
         # determine particle likelihoods with sensor model
         likelihoods = self.sensor_model.evaluate(self.particles, laser_scan)
         # resample particles based on likelihoods
