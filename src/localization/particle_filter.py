@@ -10,7 +10,7 @@ from std_msgs.msg import Header
 from sensor_msgs.msg import LaserScan
 from nav_msgs.msg import Odometry
 from geometry_msgs.msg import PoseWithCovarianceStamped, PoseWithCovariance, Pose, Position, Quaternion
-from tf.transformations import euler_from_quaternion
+from tf.transformations import euler_from_quaternion, quaternion_from_euler
 
 import numpy as np
 import math
@@ -125,15 +125,28 @@ class ParticleFilter:
     def publish_average_particle(self):
         '''
         Publish average particle position.
+
+        Using sqrt(M) random particles compared with sqrt(M) other random particles
+        and choosing "best" particle as one from first group with min median dist
+        from other group.
         '''
+        N = int(self.particles.shape[0] ** 0.5)
+        base_particles = np.random.choice(self.particles, N)
+        other_particles = np.random.choice(self.particles, (N, N,))
+        distances = ((base_particles - other_particles) ** 2).sum(axis=-1)
+        median_distances = distances.median(axis=0)
+        best_index = np.argmax(median_distances)
+        best_particle = base_particles[best_index]
+
         position = Odometry(
             header = Header(frame_id = self.map_frame),
             child_frame_id = self.particle_filter_frame,
             pose = PoseWithCovariance(pose = Pose(
-                position = Position(),
-                orientation = Quaternion()
+                position = Position(x=best_particle[0], y=best_particle[1], z=0),
+                orientation = Quaternion(quaternion_from_euler(0, 0, best_particle[2]))
             ))
         )
+        self.odom_pub.publish(position)
 
 if __name__ == "__main__":
     rospy.init_node("particle_filter")
