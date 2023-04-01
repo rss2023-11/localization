@@ -2,4 +2,7 @@
   <node pkg="localization" type="particle_filter.py" name="particle_filter" output="screen">
     <rosparam command="load" file="$(find localization)/params.yaml"/>
   </node>
+  <node pkg="localization" type="pose_initializer.py" name="pose_initializer" output="screen">
+    <rosparam command="load" file="$(find localization)/params.yaml"/>
+  </node>
 </launch>

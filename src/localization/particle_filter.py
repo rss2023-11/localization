@@ -85,14 +85,22 @@ class ParticleFilter:
             initial_pose: An object of type PoseWithCovarianceStamped representing the pose to initialize using
         '''
         # extract coordinates of particle
-        x = initial_pose.pose.pose.position[0]
-        y = initial_pose.pose.pose.position[1]
-        yaw = euler_from_quaternion(initial_pose.pose.pose.orientation)[2]
-        mean_position = np.array([[x, y, yaw]])
+        x = initial_pose.pose.pose.position.x
+        y = initial_pose.pose.pose.position.y
+
+        orientation = initial_pose.pose.pose.orientation
+        quat = [
+            orientation.x,
+            orientation.y,
+            orientation.z,
+            orientation.w,
+        ]
+        yaw = euler_from_quaternion(quat)[2]
+        mean_position = np.array([x, y, yaw])
 
         covariance = np.array(initial_pose.pose.covariance).reshape((6, 6))
         # Only keep the relevant rows: the ones corresponding to xy position and rotation about the z axis
-        covariance = covariance[(0, 1, 5), (0, 1, 5)]
+        covariance = covariance[np.ix_((0, 1, 5), (0, 1, 5))]
 
         # Create the particles
         self.particles = np.random.multivariate_normal(mean_position, covariance, (self.num_particles,))
@@ -105,8 +113,8 @@ class ParticleFilter:
             odometry_msg: An object of type Odometry representing the odometry message
         '''
         if self.particles is None:
-            raise Exception("Particles not initialized. Provide an initial pose through the /initialpose topic before using the odometry callback")
-        pass
+            return
+            #raise Exception("Particles not initialized. Provide an initial pose through the /initialpose topic before using the odometry callback")
         # extract change in position and angle (labeled twist) from published Odometry message 
         odometry = odometry_msg.twist.twist.linear
         # update particles with new odometry information
@@ -122,8 +130,9 @@ class ParticleFilter:
             laser_scan: An object of type LaserScan representing the LaserScan message
         '''
         if self.particles is None:
-            raise Exception("Particles not initialized. Provide an initial pose through the /initialpose topic before using the odometry callback")
-        pass
+            return
+            #raise Exception("Particles not initialized. Provide an initial pose through the /initialpose topic before using the odometry callback")
+
         # determine particle likelihoods with sensor model
         likelihoods = self.sensor_model.evaluate(self.particles, laser_scan)
         # resample particles based on likelihoods
