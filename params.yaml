@@ -23,5 +23,8 @@ odom_topic: "/odom"
 # The frame you should publish your transform to
 particle_filter_frame: "/base_link_pf"
 
+# The world (map) frame
+map_frame: "/map"
+
 # Deterministic flag; set to true to remove all added noise
 deterministic: true
