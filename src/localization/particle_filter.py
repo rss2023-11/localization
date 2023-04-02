@@ -76,6 +76,7 @@ class ParticleFilter:
         # Publish a transformation frame between the map
         # and the particle_filter_frame.
         self.particles = None
+        self._last_odometry_update_time = None
 
     def initialize_particles(self, initial_pose):
         '''
@@ -105,6 +106,9 @@ class ParticleFilter:
         # Create the particles
         self.particles = np.random.multivariate_normal(mean_position, covariance, (self.num_particles,))
 
+        # Reset the odometry update time
+        self._last_odometry_update_time = None
+
     def odometry_update(self, odometry_msg):
         '''
         Callback for motino model which updates particle positions and publishes average position.
@@ -115,11 +119,20 @@ class ParticleFilter:
         if self.particles is None:
             return
             #raise Exception("Particles not initialized. Provide an initial pose through the /initialpose topic before using the odometry callback")
+
+        if self._last_odometry_update_time is None:
+            self._last_odometry_update_time = rospy.get_time()
+            return
+        time = rospy.get_time()
+        dt = time - self._last_odometry_update_time
+        self._last_odometry_update_time = time
+
         # extract change in position and angle (labeled twist) from published Odometry message 
+        #print(odometry_msg)
         translation = odometry_msg.twist.twist.linear
         rotation = odometry_msg.twist.twist.angular
-        odometry = np.array([translation.x, translation.y, rotation.z])
-        print(odometry)
+        odometry = np.array([translation.x, translation.y, rotation.z]) * dt
+        #print(odometry)
         # update particles with new odometry information
         self.particles = self.motion_model.evaluate(self.particles, odometry)
         # publish particle position
@@ -170,6 +183,7 @@ class ParticleFilter:
                 orientation = Quaternion(x=quaternian[0], y=quaternian[1], z=quaternian[2], w=quaternian[3])
             ))
         )
+        #print("Odometry position", position)
         self.odom_pub.publish(position)
 
     def _sample_particles(self, shape, likelihoods=None):
