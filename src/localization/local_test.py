@@ -18,13 +18,14 @@ class SensorModel:
         self.alpha_max = 0.07
         self.alpha_rand = 0.12
         self.sigma_hit = 8.0
+        self.z_max = 200 #I assume it's 200 bc that's the max possible distance we get?
 
         # Your sensor table will be a `table_width` x `table_width` np array:
         self.table_width = 5
         ####################################
 
         # Precompute the sensor model table
-        self.sensor_model_table = None
+        self.sensor_model_table = np.zeros((self.table_width, self.table_width))
         self.precompute_sensor_model()
 
     def p(self, d, z):
@@ -59,23 +60,60 @@ class SensorModel:
         returns:
             No return type. Directly modify `self.sensor_model_table`.
         """
-        # self.sensor_model_table = np.zeros((self.table_width, self.table_width))
-
-        # for d in range(self.table_width):
-        #     for z in range(self.table_width):
-        #         self.sensor_model_table[d][z] = self.p(d, z)
-        # #normalize hits term array
-        # norms=np.linalg.norm(hits_terms, axis=0)
-        # hits_terms=np.divide(hits_terms,norms)
-        # self.sensor_model_table=np.add(self.sensor_model_table,hits_terms)
+        def p_hit(zi, d):
+            if zi>=0 and zi<=d:
+                output=self.alpha_hit*1/(math.sqrt(2*math.pi*self.sigma_hit**2))*np.exp(-(zi-d)**2/(2*self.sigma_hit**2))
+                return output
+            else:
+                return 0
+            
+        def p_short(zi, d):
+            if zi>=0 and zi<=d and d!=0:
+                output=(2/d)*(1-(zi/d))
+                return output
+            else:
+                return 0
         
-        # #normalize whole table
-        # table_norms=np.linalg.norm(self.sensor_model_table, axis=0)
-        # self.sensor_model_table=np.divide(self.sensor_model_table, table_norms)
-        # print(self.sensor_model_table)
+        def p_max(zi, d):
+            if zi==self.z_max:
+                return 1
+            else:
+                return 0
+            
+        def p_rand(zi, d):
+            if zi>=0 and zi<=self.z_max:
+                return 1/self.z_max
+            else:
+                return 0
+        
+        hits_terms=np.zeros((self.table_width, self.table_width))
+        
+        #fill a hits term array to be normalized, as well as the actual table
+        for d in range(0,self.table_width):
+            for zi in range(0,self.table_width):
+                hit_term=p_hit(zi,d)
+                short_term=p_short(zi,d)
+                max_term=p_max(zi,d)
+                rand_term=p_rand(zi,d)
+                
+                hits_terms[d][zi]=hit_term
+                self.sensor_model_table[d][zi]=short_term+max_term+rand_term
+                
+        #normalize hits term array
+        norms=np.sum(hits_terms, axis=0)
+        hits_terms=np.divide(hits_terms,norms)
+        self.sensor_model_table=np.add(self.sensor_model_table,hits_terms)
+        print(hits_terms)
+        #normalize whole table
+        table_norms=np.sum(self.sensor_model_table, axis=0)
+        self.sensor_model_table=np.log(np.divide(self.sensor_model_table, table_norms))
+        print(self.sensor_model_table)
 
 test = SensorModel()
 # test.precompute_sensor_model()
+
+
+
 
 from math import *
 import numpy as np
@@ -151,8 +189,8 @@ class MotionModel:
     
         ####################################
 
-particles = np.array([[1, 2, 0.5],
-                      [1,2,4]]) #2*3
-odometry = np.array([1,1,1]) #1*3
-test_motion = MotionModel()
-print(test_motion.evaluate(particles, odometry))
+# particles = np.array([[1, 2, 0.5],
+#                       [1,2,4]]) #2*3
+# odometry = np.array([1,1,1]) #1*3
+# test_motion = MotionModel()
+# print(test_motion.evaluate(particles, odometry))

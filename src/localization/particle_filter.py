@@ -20,9 +20,9 @@ class ParticleFilter:
     def __init__(self):
         # Get parameters
         self.particle_filter_frame = \
-                rospy.get_param("~particle_filter_frame")
-        self.map_frame = rospy.get_param("~map_frame")
-        self.num_particles = rospy.get_param("~num_particles")
+                rospy.get_param("~particle_filter_frame", "base_link_pf")
+        self.map_frame = rospy.get_param("~map_frame", "/map")
+        self.num_particles = rospy.get_param("~num_particles", 200)
 
         # Initialize publishers/subscribers
         #
