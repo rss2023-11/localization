@@ -9,7 +9,7 @@ from motion_model import MotionModel
 from std_msgs.msg import Header
 from sensor_msgs.msg import LaserScan
 from nav_msgs.msg import Odometry
-from geometry_msgs.msg import PoseWithCovarianceStamped, PoseWithCovariance, Pose, Point, Quaternion
+from geometry_msgs.msg import PoseWithCovarianceStamped, PoseWithCovariance, Pose, Point, Quaternion, PoseArray
 from tf.transformations import euler_from_quaternion, quaternion_from_euler
 
 import numpy as np
@@ -58,6 +58,7 @@ class ParticleFilter:
         #     odometry you publish here should be with respect to the
         #     "/map" frame.
         self.odom_pub  = rospy.Publisher("/pf/pose/odom", Odometry, queue_size = 1)
+        self.particles_pub  = rospy.Publisher("/pf/pose/particles", PoseArray, queue_size=1)
         
         # Initialize the models
         self.motion_model = MotionModel()
@@ -137,6 +138,7 @@ class ParticleFilter:
         self.particles = self.motion_model.evaluate(self.particles, odometry)
         # publish particle position
         self.publish_average_particle()
+        self.publish_particles()
         
     def sensor_update(self, laser_scan):
         '''
@@ -157,6 +159,7 @@ class ParticleFilter:
         self.particles = self._sample_particles(self.particles.shape[0], likelihoods)
         # publish particle position
         self.publish_average_particle()
+        self.publish_particles()
 
     def publish_average_particle(self):
         '''
@@ -185,6 +188,28 @@ class ParticleFilter:
         )
         #print("Odometry position", position)
         self.odom_pub.publish(position)
+
+    def publish_particles(self):
+        '''
+        Publish a PoseArray of all of our particles
+        '''
+
+        poses = [self._get_pose(particle) for particle in self.particles]
+        pose_array = PoseArray(
+            header=Header(frame_id=self.map_frame),
+            poses=poses
+        )
+        self.particles_pub.publish(pose_array)
+
+    def _get_pose(self, particle):
+        '''
+        Given a particle in our list of particles, return a Pose object for it
+        '''
+        quaternian = quaternion_from_euler(0, 0, particle[2])
+        return Pose(
+            position=Point(particle[0], particle[1], 0),
+            orientation=Quaternion(x=quaternian[0], y=quaternian[1], z=quaternian[2], w=quaternian[3])
+        )
 
     def _sample_particles(self, shape, likelihoods=None):
         '''
