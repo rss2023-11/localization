@@ -116,7 +116,10 @@ class ParticleFilter:
             return
             #raise Exception("Particles not initialized. Provide an initial pose through the /initialpose topic before using the odometry callback")
         # extract change in position and angle (labeled twist) from published Odometry message 
-        odometry = odometry_msg.twist.twist.linear
+        translation = odometry_msg.twist.twist.linear
+        rotation = odometry_msg.twist.twist.angular
+        odometry = np.array([translation.x, translation.y, rotation.z])
+        print(odometry)
         # update particles with new odometry information
         self.particles = self.motion_model.evaluate(self.particles, odometry)
         # publish particle position
@@ -134,9 +137,11 @@ class ParticleFilter:
             #raise Exception("Particles not initialized. Provide an initial pose through the /initialpose topic before using the odometry callback")
 
         # determine particle likelihoods with sensor model
-        likelihoods = self.sensor_model.evaluate(self.particles, laser_scan)
+        downsampled = self.sensor_model.downsample(laser_scan)
+        likelihoods = self.sensor_model.evaluate(self.particles, downsampled)
+        likelihoods /= likelihoods.sum() # Normalize probabilities so the average is 1
         # resample particles based on likelihoods
-        self.particles = np.random.choice(self.particles, self.particles.shape[0], likelihoods)
+        self.particles = self._sample_particles(self.particles.shape[0], likelihoods)
         # publish particle position
         self.publish_average_particle()
 
@@ -149,22 +154,34 @@ class ParticleFilter:
         from other group.
         '''
         N = int(self.particles.shape[0] ** 0.5)
-        base_particles = np.random.choice(self.particles, N)
-        other_particles = np.random.choice(self.particles, (N, N,))
+        base_particles = self._sample_particles((N,))
+        other_particles = self._sample_particles((N, N,))
         distances = ((base_particles - other_particles) ** 2).sum(axis=-1)
-        median_distances = distances.median(axis=0)
+        median_distances = np.median(distances, axis=0)
         best_index = np.argmax(median_distances)
         best_particle = base_particles[best_index]
 
+        quaternian = quaternion_from_euler(0, 0, best_particle[2])
         position = Odometry(
             header = Header(frame_id = self.map_frame),
             child_frame_id = self.particle_filter_frame,
             pose = PoseWithCovariance(pose = Pose(
                 position = Point(x=best_particle[0], y=best_particle[1], z=0),
-                orientation = Quaternion(quaternion_from_euler(0, 0, best_particle[2]))
+                orientation = Quaternion(x=quaternian[0], y=quaternian[1], z=quaternian[2], w=quaternian[3])
             ))
         )
         self.odom_pub.publish(position)
+
+    def _sample_particles(self, shape, likelihoods=None):
+        '''
+        Sample from our particles and return an array of the given shape
+        '''
+        if likelihoods is None:
+            idx = np.random.randint(self.particles.shape[0], size=shape)
+        else:
+            idx = np.random.choice(list(range(self.particles.shape[0])), size=shape, p=likelihoods)
+
+        return self.particles[idx]
 
 if __name__ == "__main__":
     rospy.init_node("particle_filter")

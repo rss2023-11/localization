@@ -15,6 +15,8 @@ class PoseInitializer:
     relative to robot for Parking Controller to park in front of.
     """
     def __init__(self):
+        self.map_frame = rospy.get_param("~map_frame")
+
         # Subscribe to clicked point messages from rviz    
         rospy.Subscriber("/clicked_point", 
             PointStamped, self.clicked_callback)
@@ -33,6 +35,7 @@ class PoseInitializer:
         
         # message to publish onwards
         message = PoseWithCovarianceStamped()
+        message.header.frame_id = self.map_frame
         x, y, z = msg_frame_pos
         message.pose.pose.position = Point(x=x, y=y, z=z)
         x, y, z, w = msg_frame_quat
