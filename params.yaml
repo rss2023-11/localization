@@ -27,4 +27,4 @@ particle_filter_frame: "/base_link_pf"
 map_frame: "/map"
 
 # Deterministic flag; set to true to remove all added noise
-deterministic: true
+deterministic: false
