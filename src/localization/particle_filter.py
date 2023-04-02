@@ -177,13 +177,13 @@ class ParticleFilter:
         best_index = np.argmax(median_distances)
         best_particle = base_particles[best_index]
 
-        quaternian = quaternion_from_euler(0, 0, best_particle[2])
+        quaternion = quaternion_from_euler(0, 0, best_particle[2])
         position = Odometry(
             header = Header(frame_id = self.map_frame),
             child_frame_id = self.particle_filter_frame,
             pose = PoseWithCovariance(pose = Pose(
                 position = Point(x=best_particle[0], y=best_particle[1], z=0),
-                orientation = Quaternion(x=quaternian[0], y=quaternian[1], z=quaternian[2], w=quaternian[3])
+                orientation = Quaternion(x=quaternion[0], y=quaternion[1], z=quaternion[2], w=quaternion[3])
             ))
         )
         #print("Odometry position", position)
@@ -205,10 +205,10 @@ class ParticleFilter:
         '''
         Given a particle in our list of particles, return a Pose object for it
         '''
-        quaternian = quaternion_from_euler(0, 0, particle[2])
+        quaternion = quaternion_from_euler(0, 0, particle[2])
         return Pose(
             position=Point(particle[0], particle[1], 0),
-            orientation=Quaternion(x=quaternian[0], y=quaternian[1], z=quaternian[2], w=quaternian[3])
+            orientation=Quaternion(x=quaternion[0], y=quaternion[1], z=quaternion[2], w=quaternion[3])
         )
 
     def _sample_particles(self, shape, likelihoods=None):
