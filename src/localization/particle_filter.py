@@ -65,7 +65,6 @@ class ParticleFilter:
         self.sensor_model = SensorModel()
 
         self.num_particles = rospy.get_param("~num_particles", 200)
-        self.particles = None
 
         # Implement the MCL algorithm
         # using the sensor model and the motion model
@@ -103,9 +102,14 @@ class ParticleFilter:
         covariance = np.array(initial_pose.pose.covariance).reshape((6, 6))
         # Only keep the relevant rows: the ones corresponding to xy position and rotation about the z axis
         covariance = covariance[np.ix_((0, 1, 5), (0, 1, 5))]
+        print('covariance', covariance)
 
         # Create the particles
         self.particles = np.random.multivariate_normal(mean_position, covariance, (self.num_particles,))
+
+        print('particles start')
+        print(self.particles[:5, :])
+        print('particles end')
 
         # Reset the odometry update time
         self._last_odometry_update_time = None

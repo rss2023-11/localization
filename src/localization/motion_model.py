@@ -34,14 +34,6 @@ class MotionModel:
                 same size
         """
         
-        ####################################
-        # TODO
-
-        #strategy: 
-        #apply odometry information to each particle.
-        #get the new particle.
-        #add noise to the particle measurement somehow?
-        #return the list of all the new particles 
         output = np.zeros((particles.shape[0], 3))
         
         for r in range(particles.shape[0]):
@@ -59,7 +51,7 @@ class MotionModel:
             #apply the transformation
             new_particle = np.add(row, trans)
             # print(new_particle)
-            #add noise
+            # add noise
             if not self.deterministic:
                 x_error = np.random.normal(0.0, 0.05)
                 y_error = np.random.normal(0.0, 0.02)
@@ -69,5 +61,5 @@ class MotionModel:
                 new_particle = np.add(noise, new_particle)
                 
             output[r] = new_particle.reshape((1,3))
-            
+        
         return output
