@@ -181,27 +181,14 @@ class ParticleFilter:
         and choosing "best" particle as one from first group with min median dist
         from other group.
         '''
-        N = int(self.particles.shape[0] ** 0.5)
-        base_particles = self._sample_particles((N,))
-        other_particles = self._sample_particles((N, N,))
-        distances = ((base_particles - other_particles) ** 2).sum(axis=-1)
-        median_distances = np.median(distances, axis=0)
-        best_index = np.argmax(median_distances)
-        best_particle = base_particles[best_index]
+        mean_particle = self._get_mean_pose() 
 
-        self._past_averages = self._past_averages[1:] + [best_particle]
-        interpolator =  interp1d([0, 1, 2, 3, 4], self._past_averages, kind='cubic', axis=0)
-        interpolated_point = interpolator(4)
-
-        average_point = interpolated_point
-
-
-        quaternion = quaternion_from_euler(0, 0, average_point[2])
+        quaternion = quaternion_from_euler(0, 0, mean_particle[2])
         position = Odometry(
             header = Header(frame_id = self.map_frame),
             child_frame_id = self.particle_filter_frame,
             pose = PoseWithCovariance(pose = Pose(
-                position = Point(x=average_point[0], y=average_point[1], z=0),
+                position = Point(x=mean_particle[0], y=mean_particle[1], z=0),
                 orientation = Quaternion(x=quaternion[0], y=quaternion[1], z=quaternion[2], w=quaternion[3])
             ))
         )
@@ -220,26 +207,21 @@ class ParticleFilter:
         )
         self.particles_pub.publish(pose_array)
 
-    def _get_pose(self, particle):
-        '''
-        Given a particle in our list of particles, return a Pose object for it
-        '''
-        quaternion = quaternion_from_euler(0, 0, particle[2])
-        return Pose(
-            position=Point(particle[0], particle[1], 0),
-            orientation=Quaternion(x=quaternion[0], y=quaternion[1], z=quaternion[2], w=quaternion[3])
-        )
+    def _get_mean_pose(self):
+        angles = self.particles[2]
+        angle_positions = np.vcat(math.cos(angles), math.sin(angles))
+        mean_angle_position = np.mean(angle_positions, axis=0)
+        mean_angle = math.atan2(mean_angle_position[1] / mean_angle_position[0])
+        mean_position = np.mean(self.positions[:, 0:2], axis=0)
+        mean_pose = np.array([mean_position[0], mean_position[1], mean_angle])
 
-    def _sample_particles(self, shape, likelihoods=None):
-        '''
-        Sample from our particles and return an array of the given shape
-        '''
-        if likelihoods is None:
-            idx = np.random.randint(self.particles.shape[0], size=shape)
-        else:
-            idx = np.random.choice(list(range(self.particles.shape[0])), size=shape, p=likelihoods)
 
-        return self.particles[idx]
+        self._past_averages = self._past_averages[1:] + [mean_pose]
+        interpolator =  interp1d([0, 1, 2, 3, 4], self._past_averages, kind='cubic', axis=0)
+        interpolated_point = interpolator(4)
+
+        return interpolated_point
+
 
 if __name__ == "__main__":
     rospy.init_node("particle_filter")
