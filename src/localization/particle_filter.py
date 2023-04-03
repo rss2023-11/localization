@@ -2,6 +2,8 @@
 
 import rospy
 import numpy as np
+from scipy.interpolate import interp1d
+
 from tf.transformations import euler_from_quaternion
 from sensor_model import SensorModel
 from motion_model import MotionModel
@@ -78,6 +80,9 @@ class ParticleFilter:
         self.particles = None
         self._last_odometry_update_time = None
 
+        ## Used for interpolating our estimate of the average to smooth it out
+        self._past_averages = None # Past five averages
+
     def initialize_particles(self, initial_pose):
         '''
         Initialize all particles as particle from RViz input.
@@ -113,6 +118,9 @@ class ParticleFilter:
 
         # Reset the odometry update time
         self._last_odometry_update_time = None
+
+        # Set the moving average
+        self._past_averages = [mean_position,] * 5
 
     def odometry_update(self, odometry_msg):
         '''
@@ -181,12 +189,19 @@ class ParticleFilter:
         best_index = np.argmax(median_distances)
         best_particle = base_particles[best_index]
 
-        quaternion = quaternion_from_euler(0, 0, best_particle[2])
+        self._past_averages = self._past_averages[1:] + [best_particle]
+        interpolator =  interp1d([0, 1, 2, 3, 4], self._past_averages, kind='cubic', axis=0)
+        interpolated_point = interpolator(4)
+
+        average_point = interpolated_point
+
+
+        quaternion = quaternion_from_euler(0, 0, average_point[2])
         position = Odometry(
             header = Header(frame_id = self.map_frame),
             child_frame_id = self.particle_filter_frame,
             pose = PoseWithCovariance(pose = Pose(
-                position = Point(x=best_particle[0], y=best_particle[1], z=0),
+                position = Point(x=average_point[0], y=average_point[1], z=0),
                 orientation = Quaternion(x=quaternion[0], y=quaternion[1], z=quaternion[2], w=quaternion[3])
             ))
         )
