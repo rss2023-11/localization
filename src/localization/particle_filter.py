@@ -207,12 +207,22 @@ class ParticleFilter:
         )
         self.particles_pub.publish(pose_array)
 
+    def _get_pose(self, particle):
+        '''
+        Given a particle in our list of particles, return a Pose object for it
+        '''
+        quaternion = quaternion_from_euler(0, 0, particle[2])
+        return Pose(
+            position=Point(particle[0], particle[1], 0),
+            orientation=Quaternion(x=quaternion[0], y=quaternion[1], z=quaternion[2], w=quaternion[3])
+        )
+
     def _get_mean_pose(self):
-        angles = self.particles[2]
-        angle_positions = np.vcat(math.cos(angles), math.sin(angles))
-        mean_angle_position = np.mean(angle_positions, axis=0)
-        mean_angle = math.atan2(mean_angle_position[1] / mean_angle_position[0])
-        mean_position = np.mean(self.positions[:, 0:2], axis=0)
+        angles = self.particles[:, 2]
+        angle_positions = np.vstack([np.cos(angles), np.sin(angles)])
+        mean_angle_position = np.mean(angle_positions, axis=1)
+        mean_angle = math.atan2(mean_angle_position[1], mean_angle_position[0])
+        mean_position = np.mean(self.particles[:, 0:2], axis=0)
         mean_pose = np.array([mean_position[0], mean_position[1], mean_angle])
 
 
@@ -221,6 +231,17 @@ class ParticleFilter:
         interpolated_point = interpolator(4)
 
         return interpolated_point
+
+    def _sample_particles(self, shape, likelihoods=None):
+        '''
+        Sample from our particles and return an array of the given shape
+        '''
+        if likelihoods is None:
+            idx = np.random.randint(self.particles.shape[0], size=shape)
+        else:
+            idx = np.random.choice(list(range(self.particles.shape[0])), size=shape, p=likelihoods)
+
+        return self.particles[idx]
 
 
 if __name__ == "__main__":
