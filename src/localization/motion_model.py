@@ -1,4 +1,5 @@
 from math import *
+from types import WrapperDescriptorType
 import numpy as np
 import rospy
 
@@ -22,7 +23,7 @@ class MotionModel:
 
         args:
             particles: An Nx3 matrix of the form:
-            
+
                 [x0 y0 theta0]
                 [x1 y0 theta1]
                 [    ...     ]
@@ -33,9 +34,9 @@ class MotionModel:
             particles: An updated matrix of the
                 same size
         """
-        
+
         output = np.zeros((particles.shape[0], 3))
-        
+
         for r in range(particles.shape[0]):
             r_theta = particles[r][2]
             # print(r_theta)
@@ -56,10 +57,10 @@ class MotionModel:
                 x_error = np.random.normal(0.0, 0.05)
                 y_error = np.random.normal(0.0, 0.02)
                 theta_error = np.random.normal(0.0, 0.05)
-                
+
                 noise = np.array([x_error, y_error, theta_error]).reshape((3,1))
                 new_particle = np.add(noise, new_particle)
-                
+
             output[r] = new_particle.reshape((1,3))
-        
+
         return output
