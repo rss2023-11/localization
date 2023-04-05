@@ -8,11 +8,12 @@ from tf.transformations import euler_from_quaternion
 from sensor_model import SensorModel
 from motion_model import MotionModel
 
-from std_msgs.msg import Header
+from std_msgs.msg import Header, ColorRGBA
 from sensor_msgs.msg import LaserScan
 from nav_msgs.msg import Odometry
-from geometry_msgs.msg import PoseWithCovarianceStamped, PoseWithCovariance, Pose, Point, Quaternion, PoseArray
+from geometry_msgs.msg import PoseWithCovarianceStamped, PoseWithCovariance, Pose, Point, Quaternion, PoseArray, Vector3
 from tf.transformations import euler_from_quaternion, quaternion_from_euler
+from visualization_msgs.msg import Marker, MarkerArray
 
 import numpy as np
 import math
@@ -61,7 +62,7 @@ class ParticleFilter:
         #     "/map" frame.
         self.odom_pub  = rospy.Publisher("/pf/pose/odom", Odometry, queue_size = 1)
         self.particles_pub  = rospy.Publisher("/pf/pose/particles", PoseArray, queue_size=1)
-        
+        self.slime_pub = rospy.Publisher("/slime", MarkerArray, queue_size=1)
         # Initialize the models
         self.motion_model = MotionModel()
         self.sensor_model = SensorModel()
@@ -77,9 +78,10 @@ class ParticleFilter:
         #
         # Publish a transformation frame between the map
         # and the particle_filter_frame.
-        self.particles = None
+        self.particles = []
         self._last_odometry_update_time = None
-
+        self.trail = []
+        self.count = 0
         ## Used for interpolating our estimate of the average to smooth it out
         self._past_averages = None # Past five averages
 
@@ -193,7 +195,21 @@ class ParticleFilter:
             ))
         )
         #print("Odometry position", position)
+
+        marker = Marker(
+                    type=Marker.SPHERE,
+                    id=0,
+                    lifetime=rospy.Duration(1000),
+                    pose=Pose(Point(x=mean_particle[0], y=mean_particle[1], z=0), Quaternion(x=quaternion[0], y=quaternion[1], z=quaternion[2], w=quaternion[3])),
+                    scale=Vector3(0.05, 0.05, 0.05),
+                    header=Header(frame_id=self.map_frame),
+                    color=ColorRGBA(0.0, 2.0, 0.0, 0.8))
+        self.count+=1
+        marker.id = self.count
+
+        self.trail.append(marker)
         self.odom_pub.publish(position)
+        self.slime_pub.publish(self.trail)
 
     def publish_particles(self):
         '''
