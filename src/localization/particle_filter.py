@@ -96,6 +96,10 @@ class ParticleFilter:
         x = initial_pose.pose.pose.position.x
         y = initial_pose.pose.pose.position.y
 
+        # use offsets for testing
+        x_offset = rospy.get_param("~x_offset", 0)
+        y_offset = rospy.get_param("~y_offset", 0)
+
         orientation = initial_pose.pose.pose.orientation
         quat = [
             orientation.x,
@@ -104,19 +108,14 @@ class ParticleFilter:
             orientation.w,
         ]
         yaw = euler_from_quaternion(quat)[2]
-        mean_position = np.array([x, y, yaw])
+        mean_position = np.array([x + x_offset, y + y_offset, yaw])
 
-        covariance = np.array(initial_pose.pose.covariance).reshape((6, 6))
-        # Only keep the relevant rows: the ones corresponding to xy position and rotation about the z axis
-        covariance = covariance[np.ix_((0, 1, 5), (0, 1, 5))]
-        print('covariance', covariance)
+        covariance = np.identity(3) * rospy.get_param("~covariance_factor", 1)
+        covariance[-1, -1] = 15
+        print(covariance)
 
         # Create the particles
         self.particles = np.random.multivariate_normal(mean_position, covariance, (self.num_particles,))
-
-        print('particles start')
-        print(self.particles[:5, :])
-        print('particles end')
 
         # Reset the odometry update time
         self._last_odometry_update_time = None
