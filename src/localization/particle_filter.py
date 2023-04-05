@@ -185,7 +185,7 @@ class ParticleFilter:
 
         quaternion = quaternion_from_euler(0, 0, mean_particle[2])
         position = Odometry(
-            header = Header(frame_id = self.map_frame),
+            header = Header(frame_id = self.map_frame, stamp = rospy.Time.now()),
             child_frame_id = self.particle_filter_frame,
             pose = PoseWithCovariance(pose = Pose(
                 position = Point(x=mean_particle[0], y=mean_particle[1], z=0),
