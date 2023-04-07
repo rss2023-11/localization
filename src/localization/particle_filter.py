@@ -262,7 +262,7 @@ class ParticleFilter:
         # even out our weights
         entropy = -np.sum(np.exp(self.log_weights) * self.log_weights)
         uniform_entropy = math.log(self.num_particles)
-        if entropy < uniform_entropy / 2:
+        if entropy < uniform_entropy / 8:
             # Resample based on weights:
             self.particles = self._sample_particles(
                 self.particles.shape[0],
