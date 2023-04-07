@@ -3,6 +3,7 @@
 import rospy
 import numpy as np
 from scipy.interpolate import interp1d
+import scipy.special
 
 from tf.transformations import euler_from_quaternion
 from sensor_model import SensorModel
@@ -82,6 +83,7 @@ class ParticleFilter:
         # Publish a transformation frame between the map
         # and the particle_filter_frame.
         self.particles = None
+        self.log_weights = None
         self._last_odometry_update_time = None
         self.trail = Path()
         self.trail.header.frame_id = "map"
@@ -122,6 +124,7 @@ class ParticleFilter:
 
         # Create the particles
         self.particles = np.random.multivariate_normal(mean_position, covariance, (self.num_particles,))
+        self.log_weights = np.ones((self.num_particles,)) / np.log(self.num_particles)
 
         # Reset the odometry update time
         self._last_odometry_update_time = None
@@ -173,9 +176,9 @@ class ParticleFilter:
         # determine particle likelihoods with sensor model
         downsampled = self.sensor_model.downsample(laser_scan)
         likelihoods = self.sensor_model.evaluate(self.particles, downsampled)
-        likelihoods /= likelihoods.sum() # Normalize probabilities so the average is 1
-        # resample particles based on likelihoods
-        self.particles = self._sample_particles(self.particles.shape[0], likelihoods)
+
+        self._update_particles_with_likelihoods(likelihoods)
+
         # publish particle position
         self.publish_average_particle()
         self.publish_particles()
@@ -248,6 +251,31 @@ class ParticleFilter:
         interpolated_point = interpolator(4)
 
         return interpolated_point
+    
+    def _update_particles_with_likelihoods(self, likelihoods):
+        '''
+        Given a 1d array of likelihoods with length equal to num_particles,
+        update the weights of the particles with these likelihoods and resample
+        if the entropy is too low.
+        '''
+
+        # Multiply all the weights with their likelihoods (or, rather, add the log of the weights
+        # with the log of their likelihoods)
+        log_likelihoods = np.log(likelihoods)
+        self.log_weights += log_likelihoods
+        self.log_weights -= scipy.special.logsumexp(self.log_weights) # Renormalize so the sum of weights is 1
+
+        # Calculate the entropy, and if it is less than half that of a uniform distribution resample to
+        # even out our weights
+        entropy = -np.sum(np.exp(self.log_weights) * self.log_weights)
+        uniform_entropy = math.log(self.num_particles)
+        if entropy < uniform_entropy / 2:
+            # Resample based on weights:
+            self.particles = self._sample_particles(
+                self.particles.shape[0],
+                np.exp(self.log_weights)
+            )
+            self.log_weights = np.ones((self.num_particles,)) / np.log(self.num_particles)
 
     def _sample_particles(self, shape, likelihoods=None):
         '''
@@ -261,7 +289,7 @@ class ParticleFilter:
         return self.particles[idx]
 
 
-if _name_ == "_main_":
+if __name__ == "__main__":
     rospy.init_node("particle_filter")
     pf = ParticleFilter()
     rospy.spin()
