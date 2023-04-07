@@ -5,17 +5,10 @@ import rospy
 class MotionModel:
 
     def __init__(self):
-
-        ####################################
-        # Do any precomputation for the motion
-        # model here.
-
-        # TODO
         self.deterministic = rospy.get_param("~deterministic")
+        self._last_odometry_update_time = None
 
-        ####################################
-
-    def evaluate(self, particles, odometry):
+    def evaluate(self, particles, odometry_msg):
         """
         Update the particles to reflect probable
         future states given the odometry data.
@@ -33,6 +26,17 @@ class MotionModel:
             particles: An updated matrix of the
                 same size
         """
+        if self._last_odometry_update_time is None:
+            self._last_odometry_update_time = rospy.get_time()
+        time = rospy.get_time()
+        dt = time - self._last_odometry_update_time
+        self._last_odometry_update_time = time
+
+        translation = odometry_msg.twist.twist.linear
+        rotation = odometry_msg.twist.twist.angular
+        covariance = np.array(odometry_msg.twist.covariance).reshape((6, 6))
+        covariance = covariance[np.ix_((0, 1, 5), (0, 1, 5))]
+        odometry_mean = np.array([translation.x, translation.y, rotation.z])
 
         output = np.zeros((particles.shape[0], 3))
 
@@ -46,6 +50,7 @@ class MotionModel:
                               [sin(r_theta), cos(r_theta), 0],
                               [0,0,1]])
             # print(trans, odometry.reshape((3,1)))
+            odometry = np.random.multivariate_normal(odometry_mean, covariance) * dt
             trans = np.matmul(trans, odometry.reshape((3,1)))
             # print(trans)
             #apply the transformation

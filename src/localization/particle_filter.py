@@ -141,23 +141,9 @@ class ParticleFilter:
         '''
         if self.particles is None:
             return
-            #raise Exception("Particles not initialized. Provide an initial pose through the /initialpose topic before using the odometry callback")
 
-        if self._last_odometry_update_time is None:
-            self._last_odometry_update_time = rospy.get_time()
-            return
-        time = rospy.get_time()
-        dt = time - self._last_odometry_update_time
-        self._last_odometry_update_time = time
-
-        # extract change in position and angle (labeled twist) from published Odometry message 
-        #print(odometry_msg)
-        translation = odometry_msg.twist.twist.linear
-        rotation = odometry_msg.twist.twist.angular
-        odometry = np.array([translation.x, translation.y, rotation.z]) * dt
-        #print(odometry)
         # update particles with new odometry information
-        self.particles = self.motion_model.evaluate(self.particles, odometry)
+        self.particles = self.motion_model.evaluate(self.particles, odometry_msg)
         # publish particle position
         self.publish_average_particle()
         self.publish_particles()
