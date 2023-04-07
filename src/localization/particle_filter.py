@@ -62,7 +62,9 @@ class ParticleFilter:
         #     "/map" frame.
         self.odom_pub  = rospy.Publisher("/pf/pose/odom", Odometry, queue_size = 1)
         self.particles_pub  = rospy.Publisher("/pf/pose/particles", PoseArray, queue_size=1)
+
         self.slime_pub = rospy.Publisher("/slime", Path, queue_size=20)
+
         
         # Initialize the models
         self.motion_model = MotionModel()
@@ -204,11 +206,11 @@ class ParticleFilter:
             pose = averagePose
         )
         #print("Odometry position", position)
-
         self.trail.poses.append(poseStamped)
+
         self.odom_pub.publish(position)
         self.slime_pub.publish(self.trail)
-        rospy.loginfo("Published {} points for slime trail.".format(len(self.trail.poses)))
+        # rospy.loginfo("Published {} points for slime trail.".format(len(self.trail.poses)))
 
     def publish_particles(self):
         '''

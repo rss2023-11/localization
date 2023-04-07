@@ -28,3 +28,9 @@ map_frame: "/map"
 
 # Deterministic flag; set to true to remove all added noise
 deterministic: false
+
+# Particle initialization
+x_offset: 0
+y_offset: 0
+position_variance: 0.25
+angle_variance: 2.467
