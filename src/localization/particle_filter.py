@@ -10,8 +10,8 @@ from motion_model import MotionModel
 
 from std_msgs.msg import Header, ColorRGBA
 from sensor_msgs.msg import LaserScan
-from nav_msgs.msg import Odometry
-from geometry_msgs.msg import PoseWithCovarianceStamped, PoseWithCovariance, Pose, Point, Quaternion, PoseArray, Vector3
+from nav_msgs.msg import Odometry, Path
+from geometry_msgs.msg import PoseWithCovarianceStamped, PoseWithCovariance, PoseStamped, Pose, Point, Quaternion, PoseArray, Vector3
 from tf.transformations import euler_from_quaternion, quaternion_from_euler
 from visualization_msgs.msg import Marker, MarkerArray
 
@@ -29,13 +29,13 @@ class ParticleFilter:
 
         # Initialize publishers/subscribers
         #
-        #  *Important Note #1:* It is critical for your particle
+        #  Important Note #1: It is critical for your particle
         #     filter to obtain the following topic names from the
         #     parameters for the autograder to work correctly. Note
         #     that while the Odometry message contains both a pose and
         #     a twist component, you will only be provided with the
         #     twist component, so you should rely only on that
-        #     information, and *not* use the pose component.
+        #     information, and not use the pose component.
         scan_topic = rospy.get_param("~scan_topic", "/scan")
         odom_topic = rospy.get_param("~odom_topic", "/odom")
         self.laser_sub = rospy.Subscriber(scan_topic, LaserScan,
@@ -45,7 +45,7 @@ class ParticleFilter:
                                           self.odometry_update,
                                           queue_size=1)
 
-        #  *Important Note #2:* You must respond to pose
+        #  Important Note #2: You must respond to pose
         #     initialization requests sent to the /initialpose
         #     topic. You can test that this works properly using the
         #     "Pose Estimate" feature in RViz, which publishes to
@@ -54,7 +54,7 @@ class ParticleFilter:
                                           self.initialize_particles,
                                           queue_size=1)
 
-        #  *Important Note #3:* You must publish your pose estimate to
+        #  Important Note #3: You must publish your pose estimate to
         #     the following topic. In particular, you must use the
         #     pose field of the Odometry message. You do not need to
         #     provide the twist part of the Odometry message. The
@@ -62,7 +62,8 @@ class ParticleFilter:
         #     "/map" frame.
         self.odom_pub  = rospy.Publisher("/pf/pose/odom", Odometry, queue_size = 1)
         self.particles_pub  = rospy.Publisher("/pf/pose/particles", PoseArray, queue_size=1)
-        self.slime_pub = rospy.Publisher("/slime", MarkerArray, queue_size=1)
+        self.slime_pub = rospy.Publisher("/slime", Path, queue_size=20)
+        
         # Initialize the models
         self.motion_model = MotionModel()
         self.sensor_model = SensorModel()
@@ -78,10 +79,13 @@ class ParticleFilter:
         #
         # Publish a transformation frame between the map
         # and the particle_filter_frame.
-        self.particles = []
+        self.particles = None
         self._last_odometry_update_time = None
-        self.trail = []
+        self.trail = Path()
+        self.trail.header.frame_id = "map"
+        self.trail.header.stamp = rospy.Time.now()
         self.count = 0
+
         ## Used for interpolating our estimate of the average to smooth it out
         self._past_averages = None # Past five averages
 
@@ -96,6 +100,10 @@ class ParticleFilter:
         x = initial_pose.pose.pose.position.x
         y = initial_pose.pose.pose.position.y
 
+        # use offsets for testing
+        x_offset = rospy.get_param("~x_offset", 0)
+        y_offset = rospy.get_param("~y_offset", 0)
+
         orientation = initial_pose.pose.pose.orientation
         quat = [
             orientation.x,
@@ -104,19 +112,14 @@ class ParticleFilter:
             orientation.w,
         ]
         yaw = euler_from_quaternion(quat)[2]
-        mean_position = np.array([x, y, yaw])
+        mean_position = np.array([x + x_offset, y + y_offset, yaw])
 
-        covariance = np.array(initial_pose.pose.covariance).reshape((6, 6))
-        # Only keep the relevant rows: the ones corresponding to xy position and rotation about the z axis
-        covariance = covariance[np.ix_((0, 1, 5), (0, 1, 5))]
-        print('covariance', covariance)
+        covariance = np.identity(3) * rospy.get_param("~position_variance", 1)
+        covariance[-1, -1] = rospy.get_param("~angle_variance", (math.pi/8)**2)
+        print(covariance)
 
         # Create the particles
         self.particles = np.random.multivariate_normal(mean_position, covariance, (self.num_particles,))
-
-        print('particles start')
-        print(self.particles[:5, :])
-        print('particles end')
 
         # Reset the odometry update time
         self._last_odometry_update_time = None
@@ -186,30 +189,26 @@ class ParticleFilter:
         mean_particle = self._get_mean_pose() 
 
         quaternion = quaternion_from_euler(0, 0, mean_particle[2])
+        averagePose = Pose(
+                position = Point(x=mean_particle[0], y=mean_particle[1], z=0),
+                orientation = Quaternion(x=quaternion[0], y=quaternion[1], z=quaternion[2], w=quaternion[3])
+        )
         position = Odometry(
             header = Header(frame_id = self.map_frame, stamp = rospy.Time.now()),
             child_frame_id = self.particle_filter_frame,
-            pose = PoseWithCovariance(pose = Pose(
-                position = Point(x=mean_particle[0], y=mean_particle[1], z=0),
-                orientation = Quaternion(x=quaternion[0], y=quaternion[1], z=quaternion[2], w=quaternion[3])
-            ))
+            # pose = PoseWithCovariance(pose)
+            pose = averagePose
+        )
+        poseStamped = PoseStamped(
+            header = Header(frame_id = self.map_frame, stamp = rospy.Time.now()),
+            pose = averagePose
         )
         #print("Odometry position", position)
 
-        marker = Marker(
-                    type=Marker.SPHERE,
-                    id=0,
-                    lifetime=rospy.Duration(1000),
-                    pose=Pose(Point(x=mean_particle[0], y=mean_particle[1], z=0), Quaternion(x=quaternion[0], y=quaternion[1], z=quaternion[2], w=quaternion[3])),
-                    scale=Vector3(0.05, 0.05, 0.05),
-                    header=Header(frame_id=self.map_frame),
-                    color=ColorRGBA(0.0, 2.0, 0.0, 0.8))
-        self.count+=1
-        marker.id = self.count
-
-        self.trail.append(marker)
+        self.trail.poses.append(poseStamped)
         self.odom_pub.publish(position)
         self.slime_pub.publish(self.trail)
+        rospy.loginfo("Published {} points for slime trail.".format(len(self.trail.poses)))
 
     def publish_particles(self):
         '''
@@ -260,7 +259,7 @@ class ParticleFilter:
         return self.particles[idx]
 
 
-if __name__ == "__main__":
+if _name_ == "_main_":
     rospy.init_node("particle_filter")
     pf = ParticleFilter()
     rospy.spin()
