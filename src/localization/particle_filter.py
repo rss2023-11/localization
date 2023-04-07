@@ -27,6 +27,8 @@ class ParticleFilter:
                 rospy.get_param("~particle_filter_frame", "base_link_pf")
         self.map_frame = rospy.get_param("~map_frame", "/map")
         self.num_particles = rospy.get_param("~num_particles", 200)
+        self.particles = None
+        self.log_weights = None
 
         # Initialize publishers/subscribers
         #
@@ -82,8 +84,6 @@ class ParticleFilter:
         #
         # Publish a transformation frame between the map
         # and the particle_filter_frame.
-        self.particles = None
-        self.log_weights = None
         self._last_odometry_update_time = None
         self.trail = Path()
         self.trail.header.frame_id = self.map_frame
