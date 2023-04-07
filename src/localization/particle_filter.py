@@ -86,7 +86,7 @@ class ParticleFilter:
         self.log_weights = None
         self._last_odometry_update_time = None
         self.trail = Path()
-        self.trail.header.frame_id = "map"
+        self.trail.header.frame_id = self.map_frame
         self.trail.header.stamp = rospy.Time.now()
         self.count = 0
 
@@ -185,33 +185,26 @@ class ParticleFilter:
 
     def publish_average_particle(self):
         '''
-        Publish average particle position.
-
-        Using sqrt(M) random particles compared with sqrt(M) other random particles
-        and choosing "best" particle as one from first group with min median dist
-        from other group.
+        Publish average particle position and add to slime trail.
         '''
         mean_particle = self._get_mean_pose() 
-
         quaternion = quaternion_from_euler(0, 0, mean_particle[2])
-        averagePose = Pose(
-                position = Point(x=mean_particle[0], y=mean_particle[1], z=0),
-                orientation = Quaternion(x=quaternion[0], y=quaternion[1], z=quaternion[2], w=quaternion[3])
+        average_pose = Pose(
+            position=Point(x=mean_particle[0], y=mean_particle[1], z=0),
+            orientation=Quaternion(x=quaternion[0], y=quaternion[1], z=quaternion[2], w=quaternion[3])
         )
         position = Odometry(
             header = Header(frame_id = self.map_frame, stamp = rospy.Time.now()),
             child_frame_id = self.particle_filter_frame,
-            # pose = PoseWithCovariance(pose)
-            pose = averagePose
+            pose = PoseWithCovariance(pose=average_pose)
         )
+        self.odom_pub.publish(position)
+
         poseStamped = PoseStamped(
             header = Header(frame_id = self.map_frame, stamp = rospy.Time.now()),
-            pose = averagePose
+            pose = average_pose
         )
-        #print("Odometry position", position)
         self.trail.poses.append(poseStamped)
-
-        self.odom_pub.publish(position)
         self.slime_pub.publish(self.trail)
         # rospy.loginfo("Published {} points for slime trail.".format(len(self.trail.poses)))
 
