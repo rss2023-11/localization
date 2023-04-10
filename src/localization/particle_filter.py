@@ -143,7 +143,7 @@ class ParticleFilter:
             return
 
         # update particles with new odometry information
-        self.particles = self.motion_model.evaluate(self.particles, odometry_msg)
+        self.motion_model.evaluate(self.particles, odometry_msg)
         # publish particle position
         self.publish_average_particle()
         self.publish_particles()
