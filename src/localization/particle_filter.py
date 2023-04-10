@@ -9,7 +9,7 @@ from tf.transformations import euler_from_quaternion
 from sensor_model import SensorModel
 from motion_model import MotionModel
 
-from std_msgs.msg import Header, ColorRGBA
+from std_msgs.msg import Header, ColorRGBA, Float32
 from sensor_msgs.msg import LaserScan
 from nav_msgs.msg import Odometry, Path
 from geometry_msgs.msg import PoseWithCovarianceStamped, PoseWithCovariance, PoseStamped, Pose, Point, Quaternion, PoseArray, Vector3
@@ -92,6 +92,9 @@ class ParticleFilter:
 
         ## Used for interpolating our estimate of the average to smooth it out
         self._past_averages = None # Past five averages
+
+        # To publish std. dev. of particles
+        self.stddev_pub = rospy.Publisher("std_dev", Float32)
 
     def initialize_particles(self, initial_pose):
         '''
@@ -184,8 +187,14 @@ class ParticleFilter:
             child_frame_id = self.particle_filter_frame,
             pose = PoseWithCovariance(pose=average_pose)
         )
+        # publish average particle position
         self.odom_pub.publish(position)
 
+        # publish std. dev. publishing
+        std_dev = np.std(self.particles[:, :2])
+        self.stddev_pub.publish(std_dev)
+
+        # publish trail for visualization
         poseStamped = PoseStamped(
             header = Header(frame_id = self.map_frame, stamp = rospy.Time.now()),
             pose = average_pose
