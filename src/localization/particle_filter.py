@@ -15,6 +15,7 @@ from nav_msgs.msg import Odometry, Path
 from geometry_msgs.msg import PoseWithCovarianceStamped, PoseWithCovariance, PoseStamped, Pose, Point, Quaternion, PoseArray, Vector3
 from tf.transformations import euler_from_quaternion, quaternion_from_euler
 from visualization_msgs.msg import Marker, MarkerArray
+from threading import Lock
 
 import numpy as np
 import math
@@ -72,7 +73,6 @@ class ParticleFilter:
         # Initialize the models
         self.motion_model = MotionModel()
         self.sensor_model = SensorModel()
-
         self.num_particles = rospy.get_param("~num_particles", 200)
 
         # Implement the MCL algorithm
@@ -89,12 +89,12 @@ class ParticleFilter:
         self.trail.header.frame_id = self.map_frame
         self.trail.header.stamp = rospy.Time.now()
         self.count = 0
-
+        self.mutex = Lock()
         ## Used for interpolating our estimate of the average to smooth it out
         self._past_averages = None # Past five averages
 
         # To publish std. dev. of particles
-        self.stddev_pub = rospy.Publisher("std_dev", Float32)
+        self.stddev_pub = rospy.Publisher("std_dev", Float32, queue_size=1)
 
     def initialize_particles(self, initial_pose):
         '''
@@ -103,6 +103,7 @@ class ParticleFilter:
         args:
             initial_pose: An object of type PoseWithCovarianceStamped representing the pose to initialize using
         '''
+        self.mutex.acquire()
         # extract coordinates of particle
         x = initial_pose.pose.pose.position.x
         y = initial_pose.pose.pose.position.y
@@ -129,15 +130,22 @@ class ParticleFilter:
         self.particles = np.random.multivariate_normal(mean_position, covariance, (self.num_particles,))
         self.log_weights = np.ones((self.num_particles,)) / np.log(self.num_particles)
 
+        # Reset slime trail
+        self.trail = Path()
+        self.trail.header.frame_id = self.map_frame
+        self.trail.header.stamp = rospy.Time.now()
+
         # Reset the odometry update time
         self._last_odometry_update_time = None
 
         # Set the moving average
         self._past_averages = [mean_position,] * 5
+        self.mutex.release()
+
 
     def odometry_update(self, odometry_msg):
         '''
-        Callback for motino model which updates particle positions and publishes average position.
+        Callback for motion model which updates particle positions and publishes average position.
 
         args:
             odometry_msg: An object of type Odometry representing the odometry message
@@ -145,12 +153,14 @@ class ParticleFilter:
         if self.particles is None:
             return
 
+        self.mutex.acquire()
         # update particles with new odometry information
         self.particles = self.motion_model.evaluate(self.particles, odometry_msg)
         # publish particle position
         self.publish_average_particle()
         self.publish_particles()
-        
+        self.mutex.release()
+
     def sensor_update(self, laser_scan):
         '''
         Callback for sensor model which determines particle likelihoods and publishes average position.
@@ -162,6 +172,7 @@ class ParticleFilter:
             return
             #raise Exception("Particles not initialized. Provide an initial pose through the /initialpose topic before using the odometry callback")
 
+        self.mutex.acquire()
         # determine particle likelihoods with sensor model
         downsampled = self.sensor_model.downsample(laser_scan)
         likelihoods = self.sensor_model.evaluate(self.particles, downsampled)
@@ -171,6 +182,8 @@ class ParticleFilter:
         # publish particle position
         self.publish_average_particle()
         self.publish_particles()
+        
+        self.mutex.release()
 
     def publish_average_particle(self):
         '''
