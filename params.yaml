@@ -32,5 +32,5 @@ deterministic: false
 # Particle initialization
 x_offset: 0
 y_offset: 0
-position_variance: 0.25
+position_variance: 0.35
 angle_variance: 2.467

@@ -204,8 +204,9 @@ class ParticleFilter:
         self.odom_pub.publish(position)
 
         # publish std. dev. publishing
-        std_dev = np.std(self.particles[:, :2])
-        self.stddev_pub.publish(std_dev)
+        std_devs = np.std(self.particles, axis=0)
+        std_dev_xy = math.sqrt(std_devs[0]**2 + std_devs[1]**2)
+        self.stddev_pub.publish(std_dev_xy)
 
         # publish trail for visualization
         poseStamped = PoseStamped(
