@@ -23,8 +23,7 @@ class MotionModel:
             odometry: A 3-vector [dx dy dtheta]
 
         returns:
-            particles: An updated matrix of the
-                same size
+            None (It modifies the particles array in place)
         """
         if self._last_odometry_update_time is None:
             self._last_odometry_update_time = rospy.get_time()
@@ -40,31 +39,19 @@ class MotionModel:
 
         output = np.zeros((particles.shape[0], 3))
 
-        for r in range(particles.shape[0]):
-            r_theta = particles[r][2]
-            # print(r_theta)
-            row = particles[r].reshape((3,1))
-            # print(row)
-            #transformation matrix
-            trans = np.array([[cos(r_theta), -sin(r_theta), 0],
-                              [sin(r_theta), cos(r_theta), 0],
-                              [0,0,1]])
-            # print(trans, odometry.reshape((3,1)))
-            odometry = np.random.multivariate_normal(odometry_mean, covariance) * dt
-            trans = np.matmul(trans, odometry.reshape((3,1)))
-            # print(trans)
-            #apply the transformation
-            new_particle = np.add(row, trans)
-            # print(new_particle)
-            # add noise
-            if not self.deterministic:
-                x_error = np.random.normal(0.0, 0.05)
-                y_error = np.random.normal(0.0, 0.02)
-                theta_error = np.random.normal(0.0, 0.05)
+        random_odometries = np.random.multivariate_normal(odometry_mean, covariance, size=(len(particles),))
 
-                noise = np.array([x_error, y_error, theta_error]).reshape((3,1))
-                new_particle = np.add(noise, new_particle)
+        if not self.deterministic:
+            random_odometries += np.random.multivariate_normal([0.0, 0.0, 0.0], [[0.5 ** 2, 0, 0],
+                                                                                 [0, 0.2 ** 2, 0],
+                                                                                 [0, 0, 0.5 ** 2]], size=(len(particles),))
+        #print(random_odometries)
+        random_odometries *= dt
+        
 
-            output[r] = new_particle.reshape((1,3))
-
-        return output
+        thetas = particles[:, 2]
+        # An N x 2 x 2 array of rotation matrices
+        rot_matrices = np.array([[np.cos(thetas), -np.sin(thetas)],
+                                 [np.sin(thetas), np.cos(thetas)]]).transpose(2, 0, 1)
+        particles[:, :2] += np.einsum('ijk,ik->ij', rot_matrices, random_odometries[:, :2])
+        particles[:, 2] += random_odometries[:, 2]

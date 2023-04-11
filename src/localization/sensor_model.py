@@ -33,6 +33,7 @@ class SensorModel:
 
         # Your sensor table will be a `table_width` x `table_width` np array:
         self.table_width = 201
+        self._last_odometry_update_time = None
         ####################################
 
         # Precompute the sensor model table
@@ -137,6 +138,14 @@ class SensorModel:
         # You will probably want to use this function
         # to perform ray tracing from all the particles.
         # This produces a matrix of size N x num_beams_per_particle 
+
+
+        if self._last_odometry_update_time is None:
+            self._last_odometry_update_time = rospy.get_time()
+        time = rospy.get_time()
+        dt = time - self._last_odometry_update_time
+        self._last_odometry_update_time = time
+
         scans = self.scan_sim.scan(particles)
 
         scale_factor = self.map_resolution * self.lidar_scale_to_map_scale
@@ -148,7 +157,7 @@ class SensorModel:
         observation = observation.clip(0, self.z_max).round().astype(int)
 
         probs = self.sensor_model_table[observation, scans]
-        log_probs = np.log(probs).sum(axis=1) / 2.2 # Squashing factor is 2.2
+        log_probs = np.log(probs).sum(axis=1) * dt # Squashing factor is 2.2
         return np.exp(log_probs)
 
         ####################################

@@ -155,7 +155,7 @@ class ParticleFilter:
 
         self.mutex.acquire()
         # update particles with new odometry information
-        self.particles = self.motion_model.evaluate(self.particles, odometry_msg)
+        self.motion_model.evaluate(self.particles, odometry_msg)
         # publish particle position
         self.publish_average_particle()
         self.publish_particles()
@@ -270,15 +270,18 @@ class ParticleFilter:
         # even out our weights
         entropy = -np.sum(np.exp(self.log_weights) * self.log_weights)
         uniform_entropy = math.log(self.num_particles)
-        if entropy < uniform_entropy / 8:
+        if entropy < uniform_entropy / 2:
             # Resample based on weights:
             self.particles = self._sample_particles(
                 self.particles.shape[0],
-                np.exp(self.log_weights)
+                np.exp(self.log_weights),
+                noise_covariance=[[0.05 ** 2, 0, 0],
+                                  [0, 0.02 ** 2, 0],
+                                  [0, 0, 0.05 ** 2]]
             )
             self.log_weights = np.ones((self.num_particles,)) / np.log(self.num_particles)
 
-    def _sample_particles(self, shape, likelihoods=None):
+    def _sample_particles(self, shape, likelihoods=None, noise_covariance=None):
         '''
         Sample from our particles and return an array of the given shape
         '''
@@ -287,7 +290,11 @@ class ParticleFilter:
         else:
             idx = np.random.choice(list(range(self.particles.shape[0])), size=shape, p=likelihoods)
 
-        return self.particles[idx]
+        new_particles = self.particles[idx]
+        if noise_covariance is not None:
+            new_particles += np.random.multivariate_normal([0.0, 0.0, 0.0], noise_covariance, size=shape)
+
+        return new_particles
 
 
 if __name__ == "__main__":
