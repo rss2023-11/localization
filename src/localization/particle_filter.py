@@ -242,9 +242,9 @@ class ParticleFilter:
     def _get_mean_pose(self):
         angles = self.particles[:, 2]
         angle_positions = np.vstack([np.cos(angles), np.sin(angles)])
-        mean_angle_position = np.mean(angle_positions, axis=1)
+        mean_angle_position = np.average(angle_positions, axis=1, weights=np.exp(self.log_weights))
         mean_angle = math.atan2(mean_angle_position[1], mean_angle_position[0])
-        mean_position = np.mean(self.particles[:, 0:2], axis=0)
+        mean_position = np.average(self.particles[:, 0:2], axis=0, weights=np.exp(self.log_weights))
         mean_pose = np.array([mean_position[0], mean_position[1], mean_angle])
 
 
