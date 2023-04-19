@@ -25,7 +25,6 @@ class MotionModel:
         returns:
             None (It modifies the particles array in place)
         """
-        #test git functions
         if self._last_odometry_update_time is None:
             self._last_odometry_update_time = rospy.get_time()
         time = rospy.get_time()
