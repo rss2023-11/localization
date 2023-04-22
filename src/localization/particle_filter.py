@@ -28,8 +28,6 @@ class ParticleFilter:
                 rospy.get_param("~particle_filter_frame", "base_link_pf")
         self.map_frame = rospy.get_param("~map_frame", "/map")
         self.num_particles = rospy.get_param("~num_particles", 200)
-        self.particles = None
-        self.log_weights = None
 
         # Initialize publishers/subscribers
         #
@@ -90,6 +88,17 @@ class ParticleFilter:
         self.trail.header.stamp = rospy.Time.now()
         self.count = 0
         self.mutex = Lock()
+
+        init_pose = Pose(
+            position=Point(x=-19.73, y=3.60, z=0),
+            orientation=Quaternion(x=0, y=0, z=-0.8125, w=0.5829)
+        )
+        pose_stamped = PoseWithCovarianceStamped(
+            pose=PoseWithCovariance(pose=init_pose), 
+            header = Header(frame_id = self.map_frame, stamp = rospy.Time.now())
+        )
+        self.particles = self.initialize_particles(pose_stamped)
+        self.log_weights = None
         ## Used for interpolating our estimate of the average to smooth it out
         self._past_averages = None # Past five averages
 
@@ -201,6 +210,8 @@ class ParticleFilter:
             pose = PoseWithCovariance(pose=average_pose)
         )
         # publish average particle position
+        rospy.loginfo("CURRENT POSITION")
+        rospy.loginfo(position.pose.pose)
         self.odom_pub.publish(position)
 
         # publish std. dev. publishing
