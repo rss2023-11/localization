@@ -24,54 +24,17 @@ import math
 class ParticleFilter:
     def __init__(self):
         # Get parameters
+        self.num_particles = rospy.get_param("~num_particles", 200)
         self.particle_filter_frame = \
                 rospy.get_param("~particle_filter_frame", "base_link_pf")
         self.map_frame = rospy.get_param("~map_frame", "/map")
         self.num_particles = rospy.get_param("~num_particles", 200)
-
-        # Initialize publishers/subscribers
-        #
-        #  Important Note #1: It is critical for your particle
-        #     filter to obtain the following topic names from the
-        #     parameters for the autograder to work correctly. Note
-        #     that while the Odometry message contains both a pose and
-        #     a twist component, you will only be provided with the
-        #     twist component, so you should rely only on that
-        #     information, and not use the pose component.
         scan_topic = rospy.get_param("~scan_topic", "/scan")
         odom_topic = rospy.get_param("~odom_topic", "/odom")
-        self.laser_sub = rospy.Subscriber(scan_topic, LaserScan,
-                                          self.sensor_update,
-                                          queue_size=1)
-        self.odom_sub  = rospy.Subscriber(odom_topic, Odometry,
-                                          self.odometry_update,
-                                          queue_size=1)
-
-        #  Important Note #2: You must respond to pose
-        #     initialization requests sent to the /initialpose
-        #     topic. You can test that this works properly using the
-        #     "Pose Estimate" feature in RViz, which publishes to
-        #     /initialpose.
-        self.pose_sub  = rospy.Subscriber("/initialpose", PoseWithCovarianceStamped,
-                                          self.initialize_particles,
-                                          queue_size=1)
-
-        #  Important Note #3: You must publish your pose estimate to
-        #     the following topic. In particular, you must use the
-        #     pose field of the Odometry message. You do not need to
-        #     provide the twist part of the Odometry message. The
-        #     odometry you publish here should be with respect to the
-        #     "/map" frame.
-        self.odom_pub  = rospy.Publisher("/pf/pose/odom", Odometry, queue_size = 1)
-        self.particles_pub  = rospy.Publisher("/pf/pose/particles", PoseArray, queue_size=1)
-
-        self.slime_pub = rospy.Publisher("/slime", Path, queue_size=20)
-
         
         # Initialize the models
         self.motion_model = MotionModel()
         self.sensor_model = SensorModel()
-        self.num_particles = rospy.get_param("~num_particles", 200)
 
         # Implement the MCL algorithm
         # using the sensor model and the motion model
@@ -102,6 +65,42 @@ class ParticleFilter:
         ## Used for interpolating our estimate of the average to smooth it out
         self._past_averages = None # Past five averages
 
+
+        # Initialize publishers/subscribers
+        #
+        #  Important Note #1: It is critical for your particle
+        #     filter to obtain the following topic names from the
+        #     parameters for the autograder to work correctly. Note
+        #     that while the Odometry message contains both a pose and
+        #     a twist component, you will only be provided with the
+        #     twist component, so you should rely only on that
+        #     information, and not use the pose component.
+        #  Important Note #2: You must respond to pose
+        #     initialization requests sent to the /initialpose
+        #     topic. You can test that this works properly using the
+        #     "Pose Estimate" feature in RViz, which publishes to
+        #     /initialpose.
+        
+        #  Important Note #3: You must publish your pose estimate to
+        #     the following topic. In particular, you must use the
+        #     pose field of the Odometry message. You do not need to
+        #     provide the twist part of the Odometry message. The
+        #     odometry you publish here should be with respect to the
+        #     "/map" frame.
+
+        self.laser_sub = rospy.Subscriber(scan_topic, LaserScan,
+                                          self.sensor_update,
+                                          queue_size=1)
+        self.odom_sub  = rospy.Subscriber(odom_topic, Odometry,
+                                          self.odometry_update,
+                                          queue_size=1)
+        self.pose_sub  = rospy.Subscriber("/initialpose", PoseWithCovarianceStamped,
+                                          self.initialize_particles,
+                                          queue_size=1)
+        self.odom_pub  = rospy.Publisher("/pf/pose/odom", Odometry, queue_size = 1)
+        self.particles_pub  = rospy.Publisher("/pf/pose/particles", PoseArray, queue_size=1)
+
+        self.slime_pub = rospy.Publisher("/slime", Path, queue_size=20)
         # To publish std. dev. of particles
         self.stddev_pub = rospy.Publisher("std_dev", Float32, queue_size=1)
 
@@ -133,7 +132,7 @@ class ParticleFilter:
 
         covariance = np.identity(3) * rospy.get_param("~position_variance", 1)
         covariance[-1, -1] = rospy.get_param("~angle_variance", (math.pi/8)**2)
-        print(covariance)
+        # print(covariance)
 
         # Create the particles
         self.particles = np.random.multivariate_normal(mean_position, covariance, (self.num_particles,))
@@ -210,8 +209,8 @@ class ParticleFilter:
             pose = PoseWithCovariance(pose=average_pose)
         )
         # publish average particle position
-        rospy.loginfo("CURRENT POSITION")
-        rospy.loginfo(position.pose.pose)
+        # rospy.loginfo("CURRENT POSITION")
+        # rospy.loginfo(position.pose.pose)
         self.odom_pub.publish(position)
 
         # publish std. dev. publishing
