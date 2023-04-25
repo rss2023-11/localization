@@ -20,6 +20,7 @@ map_topic: "/map"
 scan_topic: "/scan"
 # odom_topic: "/odom"
 odom_topic: "/vesc/odom"
+# odom_topic: "/pf/pose/odom"
 
 # The frame you should publish your transform to
 particle_filter_frame: "/base_link_pf"

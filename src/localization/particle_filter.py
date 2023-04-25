@@ -160,7 +160,7 @@ class ParticleFilter:
         '''
         if self.particles is None:
             return
-
+        # rospy.loginfo("ODOMETRY UPDATING")
         self.mutex.acquire()
         # update particles with new odometry information
         self.motion_model.evaluate(self.particles, odometry_msg)
@@ -211,6 +211,7 @@ class ParticleFilter:
         # publish average particle position
         # rospy.loginfo("CURRENT POSITION")
         # rospy.loginfo(position.pose.pose)
+        
         self.odom_pub.publish(position)
 
         # publish std. dev. publishing
