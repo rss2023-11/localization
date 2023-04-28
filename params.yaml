@@ -23,13 +23,14 @@ odom_topic: "/vesc/odom"
 # odom_topic: "/pf/pose/odom"
 
 # The frame you should publish your transform to
-particle_filter_frame: "/base_link_pf"
+#particle_filter_frame: "/base_link_pf"
+particle_filter_frame: "base_link"
 
 # The world (map) frame
-map_frame: "/map"
+map_frame: "map"
 
 # Deterministic flag; set to true to remove all added noise
-deterministic: false
+deterministic: true
 
 # Particle initialization
 x_offset: 0

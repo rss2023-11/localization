@@ -5,14 +5,15 @@ import numpy as np
 from scipy.interpolate import interp1d
 import scipy.special
 
-from tf.transformations import euler_from_quaternion
 from sensor_model import SensorModel
 from motion_model import MotionModel
 
 from std_msgs.msg import Header, ColorRGBA, Float32
 from sensor_msgs.msg import LaserScan
 from nav_msgs.msg import Odometry, Path
-from geometry_msgs.msg import PoseWithCovarianceStamped, PoseWithCovariance, PoseStamped, Pose, Point, Quaternion, PoseArray, Vector3
+from geometry_msgs.msg import PoseWithCovarianceStamped, PoseWithCovariance, PoseStamped, Pose, Point, Quaternion, PoseArray, Vector3, TransformStamped
+
+import tf
 from tf.transformations import euler_from_quaternion, quaternion_from_euler
 from visualization_msgs.msg import Marker, MarkerArray
 from threading import Lock
@@ -26,11 +27,21 @@ class ParticleFilter:
         # Get parameters
         self.num_particles = rospy.get_param("~num_particles", 200)
         self.particle_filter_frame = \
-                rospy.get_param("~particle_filter_frame", "base_link_pf")
+                rospy.get_param("~particle_filter_frame", "base_link")
         self.map_frame = rospy.get_param("~map_frame", "/map")
         self.num_particles = rospy.get_param("~num_particles", 200)
         scan_topic = rospy.get_param("~scan_topic", "/scan")
         odom_topic = rospy.get_param("~odom_topic", "/odom")
+
+
+        self.odom_pub  = rospy.Publisher("/pf/pose/odom", Odometry, queue_size = 1)
+        self.particles_pub  = rospy.Publisher("/pf/pose/particles", PoseArray, queue_size=1)
+
+        self.slime_pub = rospy.Publisher("/slime", Path, queue_size=20)
+        # To publish std. dev. of particles
+        self.stddev_pub = rospy.Publisher("std_dev", Float32, queue_size=1)
+
+        self.broadcaster = tf.TransformBroadcaster()
         
         # Initialize the models
         self.motion_model = MotionModel()
@@ -97,12 +108,6 @@ class ParticleFilter:
         self.pose_sub  = rospy.Subscriber("/initialpose", PoseWithCovarianceStamped,
                                           self.initialize_particles,
                                           queue_size=1)
-        self.odom_pub  = rospy.Publisher("/pf/pose/odom", Odometry, queue_size = 1)
-        self.particles_pub  = rospy.Publisher("/pf/pose/particles", PoseArray, queue_size=1)
-
-        self.slime_pub = rospy.Publisher("/slime", Path, queue_size=20)
-        # To publish std. dev. of particles
-        self.stddev_pub = rospy.Publisher("std_dev", Float32, queue_size=1)
 
     def initialize_particles(self, initial_pose):
         '''
@@ -226,6 +231,28 @@ class ParticleFilter:
         )
         self.trail.poses.append(poseStamped)
         self.slime_pub.publish(self.trail)
+
+        # Publish the transform
+        # Create a TransformStamped message
+        transform = TransformStamped()
+        transform.header.stamp = rospy.Time.now()
+        transform.header.frame_id = self.map_frame
+        transform.child_frame_id = self.particle_filter_frame
+        transform.transform.translation.x = mean_particle[0]
+        transform.transform.translation.y = mean_particle[1]
+        transform.transform.translation.z = 0.0
+        transform.transform.rotation.x = quaternion[0]
+        transform.transform.rotation.y = quaternion[1]
+        transform.transform.rotation.z = quaternion[2]
+        transform.transform.rotation.w = quaternion[3]
+        self.broadcaster.sendTransform(
+            (transform.transform.translation.x, transform.transform.translation.y, transform.transform.translation.z),
+            (transform.transform.rotation.x, transform.transform.rotation.y, transform.transform.rotation.z, transform.transform.rotation.w),
+            transform.header.stamp,
+            transform.child_frame_id,
+            transform.header.frame_id
+        )
+
         # rospy.loginfo("Published {} points for slime trail.".format(len(self.trail.poses)))
 
     def publish_particles(self):
